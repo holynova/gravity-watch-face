@@ -1,4 +1,5 @@
 import * as CANNON from 'cannon-es';
+import { CollisionHapticEvent, MotionMetrics } from '../audio/HapticsEngine';
 import { ThemeSpec } from '../themes/types';
 
 export interface BodyMeta {
@@ -14,7 +15,8 @@ export interface BoundsSize {
   depth: number;
 }
 
-export type CollisionCallback = (impactSpeed: number) => void;
+export type CollisionCallback = (evt: CollisionHapticEvent) => void;
+export type TouchNudgeCallback = () => void;
 
 export class PhysicsWorld {
   readonly world: CANNON.World;
@@ -33,15 +35,22 @@ export class PhysicsWorld {
   };
 
   private readonly pointerBody: CANNON.Body;
+  private readonly wallSet = new Set<CANNON.Body>();
   private pointerActive = false;
   private lastPointerPos = new CANNON.Vec3();
   private bounds: BoundsSize;
   private lastImpactEmitMs = 0;
   private onCollision?: CollisionCallback;
+  private onTouchNudge?: TouchNudgeCallback;
 
-  constructor(initialBounds: BoundsSize, onCollision?: CollisionCallback) {
+  constructor(
+    initialBounds: BoundsSize,
+    onCollision?: CollisionCallback,
+    onTouchNudge?: TouchNudgeCallback,
+  ) {
     this.bounds = { ...initialBounds };
     this.onCollision = onCollision;
+    this.onTouchNudge = onTouchNudge;
 
     this.world = new CANNON.World({
       gravity: new CANNON.Vec3(0, -24, -7),
@@ -84,7 +93,10 @@ export class PhysicsWorld {
     this.walls.bottom.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     this.walls.top.quaternion.setFromEuler(Math.PI / 2, 0, 0);
 
-    Object.values(this.walls).forEach((w) => this.world.addBody(w));
+    Object.values(this.walls).forEach((w) => {
+      this.wallSet.add(w);
+      this.world.addBody(w);
+    });
     this.applyWallPositions();
 
     // Kinematic touch/cursor pusher sphere
@@ -141,9 +153,10 @@ export class PhysicsWorld {
 
     const fullW = this.bounds.halfW * 2;
     const fullH = this.bounds.halfH * 2;
-    const areaRatio = Math.max(0.75, Math.min(1.5, fullH / Math.max(1, fullW) / 1.9));
-    const count = Math.round(theme.baseCount * areaRatio);
-    const baseSize = fullW * theme.sizeFactor;
+    const refSpan = Math.min(fullW, fullH);
+    const areaFactor = Math.max(0.85, Math.min(1.55, (fullW * fullH) / Math.max(0.5, refSpan * refSpan) / 1.9));
+    const count = Math.round(theme.baseCount * areaFactor);
+    const baseSize = refSpan * theme.sizeFactor;
 
     const usableW = Math.max(0.5, fullW - baseSize * 2.2);
     const usableH = Math.max(0.5, fullH - baseSize * 2.2);
@@ -209,14 +222,22 @@ export class PhysicsWorld {
         Math.sin(i * 4.9) * 1.4,
       );
 
-      body.addEventListener('collide', (evt: { contact: CANNON.ContactEquation }) => {
+      body.addEventListener('collide', (evt: { body: CANNON.Body; contact: CANNON.ContactEquation }) => {
+        if (evt.body === this.pointerBody) {
+          this.onTouchNudge?.();
+          return;
+        }
         if (!this.onCollision) return;
         const now = performance.now();
-        if (now - this.lastImpactEmitMs < 68) return;
+        if (now - this.lastImpactEmitMs < 34) return;
         const impact = Math.abs(evt.contact.getImpactVelocityAlongNormal());
-        if (impact > 2.2) {
+        if (impact > 1.25) {
           this.lastImpactEmitMs = now;
-          this.onCollision(impact);
+          this.onCollision({
+            speed: impact,
+            kind: this.wallSet.has(evt.body) ? 'wall' : 'body',
+            mass: body.mass,
+          });
         }
       });
 
@@ -276,6 +297,25 @@ export class PhysicsWorld {
       this.pointerBody.velocity.set(vx, vy, 0);
     }
     this.lastPointerPos.copy(nextPos);
+  }
+
+  getMotionMetrics(): MotionMetrics {
+    let sum = 0;
+    let maxSpeed = 0;
+    let movingCount = 0;
+    for (let i = 0; i < this.bodies.length; i++) {
+      const sp = this.bodies[i].velocity.length();
+      if (sp > 0.35) {
+        sum += sp;
+        movingCount += 1;
+        if (sp > maxSpeed) maxSpeed = sp;
+      }
+    }
+    return {
+      avgSpeed: movingCount > 0 ? sum / movingCount : 0,
+      maxSpeed,
+      movingCount,
+    };
   }
 
   step(dtSeconds: number): void {

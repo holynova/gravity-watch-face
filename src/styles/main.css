@@ -89,128 +89,6 @@ body {
     );
 }
 
-/* Watch Face Overlay */
-.watch-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 10cqw 6.5cqw 19cqw;
-  z-index: 4;
-}
-
-.watch-top-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 3cqw;
-}
-
-.watch-overlay[data-layout='vault'] .watch-top-row {
-  justify-content: space-between;
-}
-
-.watch-clock-block {
-  text-align: right;
-  color: rgba(255, 255, 255, 0.96);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.56);
-}
-
-.watch-date {
-  font-size: 4.1cqw;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-  color: rgba(255, 255, 255, 0.88);
-  margin-bottom: 0.8cqw;
-}
-
-.watch-time {
-  font-size: 19.5cqw;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 0.88;
-  font-variant-numeric: tabular-nums;
-}
-
-.watch-bottom-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1cqw;
-}
-
-.watch-overlay[data-layout='court'] .watch-comp,
-.watch-overlay[data-layout='court'] .watch-bottom-row {
-  display: none;
-}
-
-.watch-comp {
-  width: 17cqw;
-  height: 17cqw;
-  border-radius: 999px;
-  background: rgba(18, 20, 26, 0.54);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.92);
-  position: relative;
-  transition: opacity 220ms ease, transform 220ms ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-
-.watch-comp--sunset {
-  margin-top: 3cqw;
-  gap: 0.4cqw;
-}
-
-.sunset-icon {
-  width: 5.5cqw;
-  height: 5.5cqw;
-  opacity: 0.86;
-}
-
-.comp-sunset-time {
-  font-size: 3.3cqw;
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.comp-sunset-period {
-  font-size: 2.3cqw;
-  letter-spacing: 0.06em;
-  opacity: 0.68;
-  line-height: 1;
-}
-
-.comp-svg {
-  width: 84%;
-  height: 84%;
-}
-
-.ring-track {
-  stroke: rgba(255, 255, 255, 0.16);
-}
-
-.ring-fill {
-  stroke: rgba(255, 255, 255, 0.88);
-  transition: stroke-dasharray 260ms ease;
-}
-
-.comp-gauge-val {
-  position: absolute;
-  font-size: 4cqw;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
 /* Sensor permission CTA (only shown on iOS/permission-gated devices) */
 .sensor-cta {
   position: absolute;
@@ -238,7 +116,7 @@ body {
   display: none;
 }
 
-@media (min-width: 641px) {
+@media (min-width: 961px) and (min-height: 541px) and (hover: hover) and (pointer: fine) {
   .sensor-cta {
     display: none !important;
   }
@@ -324,6 +202,15 @@ body {
 
 .mobile-icon-btn[data-muted='false'] .sound-mute-x {
   display: none;
+}
+
+.mobile-icon-btn[aria-pressed='true'] {
+  background: rgba(124, 196, 255, 0.24);
+  color: #d8efff;
+}
+
+.mobile-icon-btn[aria-pressed='false'] .haptic-waves {
+  opacity: 0.3;
 }
 
 /* Desktop side rail (outside screen) */
@@ -562,6 +449,10 @@ body {
   color: #cce8ff;
 }
 
+.action-btn--wide {
+  grid-column: span 2;
+}
+
 .telemetry-bar {
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -602,31 +493,40 @@ body {
 
 .exit-fullbleed-btn {
   position: fixed;
-  top: 16px;
-  left: 16px;
+  top: max(14px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
   z-index: 20;
-  padding: 8px 14px;
+  padding: 7px 13px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(14, 16, 22, 0.72);
+  background: rgba(14, 16, 22, 0.56);
   backdrop-filter: blur(12px);
-  color: #ffffff;
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 220ms ease;
+}
+
+.exit-fullbleed-btn:hover {
+  opacity: 1;
 }
 
 .exit-fullbleed-btn[hidden] {
   display: none;
 }
 
-/* Full-bleed desktop toggle */
+/* Full-bleed / Fullscreen desktop & immersive mode */
 .app-shell.is-fullbleed {
   padding: 0;
   gap: 0;
 }
 
 .app-shell.is-fullbleed .screen-stage {
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100dvh;
   max-width: none;
@@ -643,8 +543,8 @@ body {
   display: flex;
 }
 
-/* Mobile pure edge-to-edge full-screen presentation */
-@media (max-width: 640px) {
+/* Mobile & touch pure edge-to-edge full-screen across all screen sizes and orientations */
+@media (max-width: 960px), (max-height: 540px), (hover: none) and (pointer: coarse) {
   .app-shell {
     padding: 0;
     gap: 0;
@@ -652,7 +552,9 @@ body {
   }
 
   .screen-stage {
-    width: 100dvw;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
     height: 100dvh;
     max-width: none;
     aspect-ratio: auto;
@@ -666,5 +568,9 @@ body {
 
   .mobile-dock {
     display: flex;
+  }
+
+  .app-shell.is-fullbleed .mobile-dock {
+    display: none;
   }
 }

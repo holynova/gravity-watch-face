@@ -11,6 +11,33 @@ export interface ThemeTextureSet {
   sparkleMap?: THREE.CanvasTexture;
 }
 
+interface FloorTextureSet {
+  floorMap: THREE.CanvasTexture;
+  floorRoughnessMap?: THREE.CanvasTexture;
+  floorBumpMap?: THREE.CanvasTexture;
+}
+
+interface ItemTextureSet {
+  itemMap?: THREE.CanvasTexture;
+  itemBumpMap?: THREE.CanvasTexture;
+  itemRoughnessMap?: THREE.CanvasTexture;
+  sparkleMap?: THREE.CanvasTexture;
+}
+
+function getFloorCanvasDims(aspect: number): { W: number; H: number } {
+  const clamped = Math.max(0.4, Math.min(2.6, aspect || 9 / 19.5));
+  if (clamped <= 1) {
+    return {
+      W: 1024,
+      H: Math.max(1024, Math.min(2240, Math.round(1024 / clamped))),
+    };
+  }
+  return {
+    W: Math.max(1024, Math.min(2240, Math.round(1024 * clamped))),
+    H: 1024,
+  };
+}
+
 function makeCanvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -39,9 +66,8 @@ function hash2D(x: number, y: number): number {
 
 // ---------- Floors ----------
 
-function createTennisCourtTexture(): THREE.CanvasTexture {
-  const W = 1024;
-  const H = 2048;
+function createTennisCourtTexture(aspect: number): THREE.CanvasTexture {
+  const { W, H } = getFloorCanvasDims(aspect);
   const [canvas, ctx] = makeCanvas(W, H);
 
   // Outer green apron (deep Roland Garros emerald)
@@ -61,82 +87,90 @@ function createTennisCourtTexture(): THREE.CanvasTexture {
   }
   ctx.putImageData(img, 0, 0);
 
-  // Inner moist terracotta clay rectangle
-  const cx0 = Math.round(W * 0.13);
-  const cw = Math.round(W * 0.74);
-  const cy0 = Math.round(H * 0.11);
-  const ch = Math.round(H * 0.78);
+  const isLandscape = W > H;
+  const shortSide = Math.min(W, H);
+  const longSide = Math.max(W, H);
 
+  // Regulation tennis court: 10.97m doubles width x 23.77m length
+  const pxPerM = Math.min((shortSide * 0.78) / 10.97, (longSide * 0.82) / 23.77);
+  const cw = Math.round(10.97 * pxPerM);
+  const ch = Math.round(23.77 * pxPerM);
+  const cx0 = -Math.round(cw * 0.5);
+  const cy0 = -Math.round(ch * 0.5);
+
+  ctx.save();
+  ctx.translate(W * 0.5, H * 0.5);
+  if (isLandscape) ctx.rotate(-Math.PI / 2);
+
+  // Inner moist terracotta clay rectangle
   ctx.fillStyle = '#a53f28';
   ctx.fillRect(cx0, cy0, cw, ch);
 
-  // Clay mineral grain inside court
-  const clayImg = ctx.getImageData(cx0, cy0, cw, ch);
-  const cd = clayImg.data;
-  for (let i = 0; i < cd.length; i += 4) {
-    const px = (i / 4) % cw;
-    const py = Math.floor(i / 4 / cw);
-    const fine = (hash2D(px * 0.85, py * 0.85) - 0.5) * 24;
-    const streak = (hash2D(Math.floor(px * 0.12), py * 0.08) - 0.5) * 10;
-    const delta = fine + streak;
-    cd[i] = Math.max(0, Math.min(255, cd[i] + delta));
-    cd[i + 1] = Math.max(0, Math.min(255, cd[i + 1] + delta * 0.6));
-    cd[i + 2] = Math.max(0, Math.min(255, cd[i + 2] + delta * 0.45));
+  // Clay mineral grain using offscreen patch so rotated coordinate stays crisp
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx0, cy0, cw, ch);
+  ctx.clip();
+  for (let i = 0; i < 4200; i++) {
+    const gx = cx0 + hash2D(i * 1.1, 2.3) * cw;
+    const gy = cy0 + hash2D(3.7, i * 1.3) * ch;
+    const light = hash2D(i, i * 0.7) > 0.5;
+    ctx.fillStyle = light ? 'rgba(235, 130, 95, 0.14)' : 'rgba(90, 28, 16, 0.16)';
+    ctx.fillRect(gx, gy, 3, 3);
   }
-  ctx.putImageData(clayImg, cx0, cy0);
+  ctx.restore();
 
   // Subtle net shadow across center
-  const netGrad = ctx.createLinearGradient(0, H * 0.48, 0, H * 0.52);
+  const netGrad = ctx.createLinearGradient(0, -ch * 0.025, 0, ch * 0.025);
   netGrad.addColorStop(0, 'rgba(0,0,0,0)');
   netGrad.addColorStop(0.5, 'rgba(0,0,0,0.34)');
   netGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = netGrad;
-  ctx.fillRect(cx0 - 30, H * 0.48, cw + 60, H * 0.04);
+  ctx.fillRect(cx0 - 24, -ch * 0.025, cw + 48, ch * 0.05);
 
   // Crisp regulation white court markings
   ctx.strokeStyle = 'rgba(246, 245, 240, 0.94)';
-  ctx.lineWidth = 8;
+  ctx.lineWidth = Math.max(5, Math.round(0.08 * pxPerM));
   ctx.strokeRect(cx0, cy0, cw, ch);
 
-  // Singles sidelines
-  const sx0 = cx0 + Math.round(cw * 0.13);
-  const sx1 = cx0 + cw - Math.round(cw * 0.13);
+  // Singles sidelines (8.23m wide)
+  const sxHalf = 4.115 * pxPerM;
+  const syServ = 6.4 * pxPerM;
   ctx.beginPath();
-  ctx.moveTo(sx0, cy0);
-  ctx.lineTo(sx0, cy0 + ch);
-  ctx.moveTo(sx1, cy0);
-  ctx.lineTo(sx1, cy0 + ch);
+  ctx.moveTo(-sxHalf, cy0);
+  ctx.lineTo(-sxHalf, cy0 + ch);
+  ctx.moveTo(sxHalf, cy0);
+  ctx.lineTo(sxHalf, cy0 + ch);
 
   // Service lines
-  const syTop = cy0 + Math.round(ch * 0.235);
-  const syBot = cy0 + Math.round(ch * 0.765);
-  ctx.moveTo(sx0, syTop);
-  ctx.lineTo(sx1, syTop);
-  ctx.moveTo(sx0, syBot);
-  ctx.lineTo(sx1, syBot);
+  ctx.moveTo(-sxHalf, -syServ);
+  ctx.lineTo(sxHalf, -syServ);
+  ctx.moveTo(-sxHalf, syServ);
+  ctx.lineTo(sxHalf, syServ);
 
   // Center service line
-  const midX = W * 0.5;
-  ctx.moveTo(midX, syTop);
-  ctx.lineTo(midX, syBot);
+  ctx.moveTo(0, -syServ);
+  ctx.lineTo(0, syServ);
 
   // Baseline center marks
-  ctx.moveTo(midX, cy0);
-  ctx.lineTo(midX, cy0 + 26);
-  ctx.moveTo(midX, cy0 + ch);
-  ctx.lineTo(midX, cy0 + ch - 26);
+  ctx.moveTo(0, cy0);
+  ctx.lineTo(0, cy0 + 22);
+  ctx.moveTo(0, cy0 + ch);
+  ctx.lineTo(0, cy0 + ch - 22);
   ctx.stroke();
 
   // Subtle net cord line
   ctx.strokeStyle = 'rgba(235, 238, 235, 0.42)';
   ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.moveTo(cx0 - 28, H * 0.5);
-  ctx.lineTo(cx0 + cw + 28, H * 0.5);
+  ctx.moveTo(cx0 - 24, 0);
+  ctx.lineTo(cx0 + cw + 24, 0);
   ctx.stroke();
 
+  ctx.restore();
+
   // Inner edge shadow vignette (deepened perimeter recess)
-  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, W * 0.2, W * 0.5, H * 0.5, H * 0.64);
+  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, shortSide * 0.22, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.54);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
   vig.addColorStop(0.7, 'rgba(0,0,0,0.16)');
   vig.addColorStop(1, 'rgba(0,0,0,0.62)');
@@ -146,12 +180,11 @@ function createTennisCourtTexture(): THREE.CanvasTexture {
   return toTexture(canvas);
 }
 
-function createBasketballCourtTextures(): {
+function createBasketballCourtTextures(aspect: number): {
   map: THREE.CanvasTexture;
   roughnessMap: THREE.CanvasTexture;
 } {
-  const W = 1024;
-  const H = 2048;
+  const { W, H } = getFloorCanvasDims(aspect);
   const [canvas, ctx] = makeCanvas(W, H);
   const [rCanvas, rCtx] = makeCanvas(W, H);
 
@@ -160,138 +193,197 @@ function createBasketballCourtTextures(): {
   rCtx.fillStyle = '#686868';
   rCtx.fillRect(0, 0, W, H);
 
-  // Smoked walnut vertical hardwood planks
-  const plankCount = 26;
-  const plankW = W / plankCount;
-  for (let p = 0; p < plankCount; p++) {
-    const x = p * plankW;
-    let y = -Math.floor(hash2D(p, 1.3) * 180);
-    while (y < H) {
-      const len = 260 + Math.floor(hash2D(p, y * 0.02) * 320);
-      const tone = hash2D(p * 3.1, y * 0.07);
-      const r = Math.round(25 + tone * 18);
-      const g = Math.round(19 + tone * 14);
-      const b = Math.round(16 + tone * 11);
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(x, y, plankW + 0.5, len);
+  const isLandscape = W > H;
 
-      const rough = Math.round(92 + tone * 34);
-      rCtx.fillStyle = `rgb(${rough},${rough},${rough})`;
-      rCtx.fillRect(x, y, plankW + 0.5, len);
+  // Smoked walnut hardwood planks aligned along court length
+  const spanAcross = isLandscape ? H : W;
+  const spanAlong = isLandscape ? W : H;
+  const plankCount = Math.max(20, Math.round(spanAcross / 38));
+  const plankW = spanAcross / plankCount;
 
-      // Fine vertical wood grain lines
-      ctx.fillStyle = 'rgba(0,0,0,0.16)';
-      for (let s = 0; s < 5; s++) {
-        const gx = x + hash2D(p + s * 0.3, y) * (plankW - 3);
-        ctx.fillRect(gx, y, 1.5, len);
-      }
-
-      // Plank butt joint
-      ctx.fillStyle = 'rgba(6,4,3,0.72)';
-      ctx.fillRect(x, y, plankW, 2);
-
-      y += len;
+  const paintPlanks = (c: CanvasRenderingContext2D, rc: CanvasRenderingContext2D) => {
+    c.save();
+    rc.save();
+    if (isLandscape) {
+      c.translate(W * 0.5, H * 0.5);
+      c.rotate(-Math.PI / 2);
+      c.translate(-spanAcross * 0.5, -spanAlong * 0.5);
+      rc.translate(W * 0.5, H * 0.5);
+      rc.rotate(-Math.PI / 2);
+      rc.translate(-spanAcross * 0.5, -spanAlong * 0.5);
     }
+    for (let p = 0; p < plankCount; p++) {
+      const x = p * plankW;
+      let y = -Math.floor(hash2D(p, 1.3) * 180);
+      while (y < spanAlong) {
+        const len = 240 + Math.floor(hash2D(p, y * 0.02) * 300);
+        const tone = hash2D(p * 3.1, y * 0.07);
+        const r = Math.round(26 + tone * 18);
+        const g = Math.round(19 + tone * 13);
+        const b = Math.round(15 + tone * 10);
+        c.fillStyle = `rgb(${r},${g},${b})`;
+        c.fillRect(x, y, plankW + 0.6, len);
 
-    // Vertical plank seam
-    ctx.fillStyle = 'rgba(6,4,3,0.75)';
-    ctx.fillRect(x, 0, 2, H);
-  }
+        const rough = Math.round(92 + tone * 34);
+        rc.fillStyle = `rgb(${rough},${rough},${rough})`;
+        rc.fillRect(x, y, plankW + 0.6, len);
 
-  // Court perimeter & markings
-  const mx = Math.round(W * 0.08);
-  const my = Math.round(H * 0.055);
-  const cw = W - mx * 2;
-  const ch = H - my * 2;
+        // Fine wood grain streaks
+        c.fillStyle = 'rgba(0,0,0,0.16)';
+        for (let s = 0; s < 5; s++) {
+          const gx = x + hash2D(p + s * 0.3, y) * (plankW - 3);
+          c.fillRect(gx, y, 1.5, len);
+        }
 
-  ctx.strokeStyle = 'rgba(235, 231, 224, 0.86)';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(mx, my, cw, ch);
+        c.fillStyle = 'rgba(6,4,3,0.72)';
+        c.fillRect(x, y, plankW, 2);
+        y += len;
+      }
+      c.fillStyle = 'rgba(6,4,3,0.75)';
+      c.fillRect(x, 0, 2, spanAlong);
+    }
+    c.restore();
+    rc.restore();
+  };
 
-  // Half-court line & center circle
-  const midX = W * 0.5;
-  const midY = H * 0.5;
+  paintPlanks(ctx, rCtx);
+
+  // Regulation FIBA/NBA court markings (15.0m x 28.0m) using single uniform scale -> true circles
+  const pxPerM = Math.min((spanAcross * 0.88) / 15.0, (spanAlong * 0.91) / 28.0);
+  const courtW = 15.0 * pxPerM;
+  const courtH = 28.0 * pxPerM;
+
+  ctx.save();
+  ctx.translate(W * 0.5, H * 0.5);
+  if (isLandscape) ctx.rotate(-Math.PI / 2);
+
+  // Outer court boundary
+  ctx.strokeStyle = 'rgba(238, 234, 226, 0.88)';
+  ctx.lineWidth = Math.max(4.5, 0.085 * pxPerM);
+  ctx.strokeRect(-courtW * 0.5, -courtH * 0.5, courtW, courtH);
+
+  // Half-court line + center circles (1.8m & 0.6m)
   ctx.beginPath();
-  ctx.moveTo(mx, midY);
-  ctx.lineTo(mx + cw, midY);
+  ctx.moveTo(-courtW * 0.5, 0);
+  ctx.lineTo(courtW * 0.5, 0);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(midX, midY, cw * 0.145, 0, Math.PI * 2);
+  ctx.arc(0, 0, 1.8 * pxPerM, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(midX, midY, cw * 0.048, 0, Math.PI * 2);
+  ctx.arc(0, 0, 0.6 * pxPerM, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Draw top & bottom half-court markings (3pt arc, key, free-throw circle, rim)
-  const drawHalf = (isTop: boolean) => {
-    const baseline = isTop ? my : my + ch;
-    const dir = isTop ? 1 : -1;
-    const hoopY = baseline + dir * (ch * 0.055);
-    const keyW = cw * 0.32;
-    const keyH = ch * 0.195;
-    const keyTop = isTop ? baseline : baseline - keyH;
+  const drawHalf = (sign: -1 | 1) => {
+    const baseY = sign * 14.0 * pxPerM;
+    const inDir = -sign;
 
-    // Free-throw lane
-    ctx.strokeRect(midX - keyW * 0.5, keyTop, keyW, keyH);
+    const keyW = 4.9 * pxPerM;
+    const keyH = 5.8 * pxPerM;
+    const ftY = baseY + inDir * keyH;
+    const keyTop = sign === -1 ? baseY : ftY;
 
-    // Free-throw circle (outer solid arc + inner dashed arc)
-    const ftY = baseline + dir * keyH;
-    const ftR = keyW * 0.5;
+    // Subtle smoked stain inside the paint
+    ctx.fillStyle = 'rgba(10, 7, 5, 0.34)';
+    ctx.fillRect(-keyW * 0.5, keyTop, keyW, keyH);
+
+    // Paint / Free-throw lane
+    ctx.strokeRect(-keyW * 0.5, keyTop, keyW, keyH);
+
+    // 4 exterior rebound lane ticks along both paint edges
+    const tickOffsetsM = [1.75, 2.65, 3.5, 4.35];
     ctx.beginPath();
-    ctx.arc(midX, ftY, ftR, isTop ? 0 : Math.PI, isTop ? Math.PI : Math.PI * 2);
+    for (const dM of tickOffsetsM) {
+      const ty = baseY + inDir * dM * pxPerM;
+      const tickLen = dM === 2.65 ? 0.3 * pxPerM : 0.16 * pxPerM;
+      ctx.moveTo(-keyW * 0.5, ty);
+      ctx.lineTo(-keyW * 0.5 - tickLen, ty);
+      ctx.moveTo(keyW * 0.5, ty);
+      ctx.lineTo(keyW * 0.5 + tickLen, ty);
+    }
+    ctx.stroke();
+
+    // Free-throw circle (r = 1.8m): solid outside paint, dashed inside paint
+    const ftR = 1.8 * pxPerM;
+    ctx.beginPath();
+    if (sign === -1) {
+      ctx.arc(0, ftY, ftR, 0, Math.PI, false);
+    } else {
+      ctx.arc(0, ftY, ftR, Math.PI, Math.PI * 2, false);
+    }
     ctx.stroke();
 
     ctx.save();
-    ctx.setLineDash([12, 12]);
+    ctx.setLineDash([Math.max(8, 0.25 * pxPerM), Math.max(8, 0.25 * pxPerM)]);
     ctx.beginPath();
-    ctx.arc(midX, ftY, ftR, isTop ? Math.PI : 0, isTop ? Math.PI * 2 : Math.PI);
+    if (sign === -1) {
+      ctx.arc(0, ftY, ftR, Math.PI, Math.PI * 2, false);
+    } else {
+      ctx.arc(0, ftY, ftR, 0, Math.PI, false);
+    }
     ctx.stroke();
     ctx.restore();
 
-    // 3-point corner lines & arc
-    const threeR = cw * 0.425;
-    const cornerXOffset = threeR;
-    const arcCenterY = hoopY;
-    const cornerEndY = arcCenterY + dir * (ch * 0.085);
+    // Rim, backboard & restricted-area semicircle (1.25m)
+    const rimY = baseY + inDir * 1.575 * pxPerM;
+    const boardY = baseY + inDir * 1.2 * pxPerM;
+    const restR = 1.25 * pxPerM;
 
     ctx.beginPath();
-    ctx.moveTo(midX - cornerXOffset, baseline);
-    ctx.lineTo(midX - cornerXOffset, cornerEndY);
-    ctx.moveTo(midX + cornerXOffset, baseline);
-    ctx.lineTo(midX + cornerXOffset, cornerEndY);
-    ctx.stroke();
-
-    const dy = cornerEndY - arcCenterY;
-    const angle = Math.asin(Math.min(0.99, Math.abs(dy) / threeR));
-    ctx.beginPath();
-    if (isTop) {
-      ctx.arc(midX, arcCenterY, threeR, angle, Math.PI - angle);
+    if (sign === -1) {
+      ctx.arc(0, rimY, restR, 0, Math.PI, false);
     } else {
-      ctx.arc(midX, arcCenterY, threeR, Math.PI + angle, Math.PI * 2 - angle);
+      ctx.arc(0, rimY, restR, Math.PI, Math.PI * 2, false);
     }
+    ctx.moveTo(-restR, boardY);
+    ctx.lineTo(-restR, rimY);
+    ctx.moveTo(restR, boardY);
+    ctx.lineTo(restR, rimY);
     ctx.stroke();
 
-    // Backboard & hoop ring
-    const boardY = baseline + dir * (ch * 0.036);
+    // Backboard & rim ring
     ctx.beginPath();
-    ctx.moveTo(midX - cw * 0.08, boardY);
-    ctx.lineTo(midX + cw * 0.08, boardY);
-    ctx.moveTo(midX, boardY);
-    ctx.lineTo(midX, hoopY - dir * 10);
+    ctx.moveTo(-0.9 * pxPerM, boardY);
+    ctx.lineTo(0.9 * pxPerM, boardY);
+    ctx.moveTo(0, boardY);
+    ctx.lineTo(0, rimY - inDir * 0.23 * pxPerM);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(midX, hoopY, 16, 0, Math.PI * 2);
+    ctx.arc(0, rimY, Math.max(7, 0.23 * pxPerM), 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Mathematically seamless 3-point line (6.75m arc meeting 0.9m sideline insets)
+    const threeR = 6.75 * pxPerM;
+    const cornerX = 6.6 * pxPerM;
+    const dy = Math.sqrt(threeR * threeR - cornerX * cornerX);
+    const joinY = rimY + inDir * dy;
+    const a0 = Math.atan2(dy, cornerX);
+
+    ctx.beginPath();
+    ctx.moveTo(-cornerX, baseY);
+    ctx.lineTo(-cornerX, joinY);
+    ctx.moveTo(cornerX, baseY);
+    ctx.lineTo(cornerX, joinY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    if (sign === -1) {
+      ctx.arc(0, rimY, threeR, a0, Math.PI - a0, false);
+    } else {
+      ctx.arc(0, rimY, threeR, Math.PI + a0, Math.PI * 2 - a0, false);
+    }
     ctx.stroke();
   };
 
-  drawHalf(true);
-  drawHalf(false);
+  drawHalf(-1);
+  drawHalf(1);
+  ctx.restore();
 
   // Subtle dark court vignette
-  const vig = ctx.createRadialGradient(midX, midY, W * 0.2, midX, midY, H * 0.65);
+  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, spanAcross * 0.2, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.55);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
   vig.addColorStop(1, 'rgba(0,0,0,0.48)');
   ctx.fillStyle = vig;
@@ -303,16 +395,24 @@ function createBasketballCourtTextures(): {
   };
 }
 
-function createSoccerPitchTexture(): THREE.CanvasTexture {
-  const W = 1024;
-  const H = 2048;
+function createSoccerPitchTexture(aspect: number): THREE.CanvasTexture {
+  const { W, H } = getFloorCanvasDims(aspect);
   const [canvas, ctx] = makeCanvas(W, H);
 
+  const isLandscape = W > H;
   const stripes = 10;
-  const stripeH = H / stripes;
-  for (let i = 0; i < stripes; i++) {
-    ctx.fillStyle = i % 2 === 0 ? '#27511b' : '#336522';
-    ctx.fillRect(0, i * stripeH, W, stripeH + 1);
+  if (isLandscape) {
+    const stripeW = W / stripes;
+    for (let i = 0; i < stripes; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#27511b' : '#336522';
+      ctx.fillRect(i * stripeW, 0, stripeW + 1, H);
+    }
+  } else {
+    const stripeH = H / stripes;
+    for (let i = 0; i < stripes; i++) {
+      ctx.fillStyle = i % 2 === 0 ? '#27511b' : '#336522';
+      ctx.fillRect(0, i * stripeH, W, stripeH + 1);
+    }
   }
 
   // Organic turf noise
@@ -328,82 +428,86 @@ function createSoccerPitchTexture(): THREE.CanvasTexture {
   }
   ctx.putImageData(img, 0, 0);
 
-  // Crisp white pitch lines
-  const mx = Math.round(W * 0.08);
-  const my = Math.round(H * 0.06);
-  const pw = W - mx * 2;
-  const ph = H - my * 2;
-  const midX = W * 0.5;
-  const midY = H * 0.5;
+  // Regulation 68m x 105m pitch markings under uniform pxPerM scale
+  const shortSide = Math.min(W, H);
+  const longSide = Math.max(W, H);
+  const pxPerM = Math.min((shortSide * 0.86) / 68, (longSide * 0.9) / 105);
+  const pw = 68 * pxPerM;
+  const ph = 105 * pxPerM;
+
+  ctx.save();
+  ctx.translate(W * 0.5, H * 0.5);
+  if (isLandscape) ctx.rotate(-Math.PI / 2);
 
   ctx.strokeStyle = 'rgba(244, 248, 240, 0.88)';
-  ctx.lineWidth = 7;
-  ctx.strokeRect(mx, my, pw, ph);
+  ctx.lineWidth = Math.max(5, 0.55 * pxPerM);
+  ctx.strokeRect(-pw * 0.5, -ph * 0.5, pw, ph);
 
-  // Halfway line & center circle
+  // Halfway line & true 9.15m center circle
   ctx.beginPath();
-  ctx.moveTo(mx, midY);
-  ctx.lineTo(mx + pw, midY);
+  ctx.moveTo(-pw * 0.5, 0);
+  ctx.lineTo(pw * 0.5, 0);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(midX, midY, pw * 0.16, 0, Math.PI * 2);
+  ctx.arc(0, 0, 9.15 * pxPerM, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.fillStyle = 'rgba(244, 248, 240, 0.9)';
   ctx.beginPath();
-  ctx.arc(midX, midY, 8, 0, Math.PI * 2);
+  ctx.arc(0, 0, Math.max(6, 0.55 * pxPerM), 0, Math.PI * 2);
   ctx.fill();
 
-  const drawBox = (isTop: boolean) => {
-    const goalY = isTop ? my : my + ph;
-    const dir = isTop ? 1 : -1;
-    const penW = pw * 0.56;
-    const penH = ph * 0.145;
-    const boxW = pw * 0.26;
-    const boxH = ph * 0.055;
+  const drawBox = (sign: -1 | 1) => {
+    const goalY = sign * ph * 0.5;
+    const inDir = -sign;
+    const penW = 40.32 * pxPerM;
+    const penH = 16.5 * pxPerM;
+    const boxW = 18.32 * pxPerM;
+    const boxH = 5.5 * pxPerM;
 
-    ctx.strokeRect(midX - penW * 0.5, isTop ? goalY : goalY - penH, penW, penH);
-    ctx.strokeRect(midX - boxW * 0.5, isTop ? goalY : goalY - boxH, boxW, boxH);
+    ctx.strokeRect(-penW * 0.5, sign === -1 ? goalY : goalY - penH, penW, penH);
+    ctx.strokeRect(-boxW * 0.5, sign === -1 ? goalY : goalY - boxH, boxW, boxH);
 
-    const spotY = goalY + dir * (ph * 0.102);
+    const spotY = goalY + inDir * 11 * pxPerM;
     ctx.beginPath();
-    ctx.arc(midX, spotY, 6, 0, Math.PI * 2);
+    ctx.arc(0, spotY, Math.max(5, 0.42 * pxPerM), 0, Math.PI * 2);
     ctx.fill();
 
-    // Penalty arc extending outside penalty box
-    const penEdgeY = goalY + dir * penH;
-    const arcR = pw * 0.15;
+    const penEdgeY = goalY + inDir * penH;
+    const arcR = 9.15 * pxPerM;
     const dy = Math.abs(penEdgeY - spotY);
     const angle = Math.acos(Math.min(0.99, dy / arcR));
     ctx.beginPath();
-    if (isTop) {
-      ctx.arc(midX, spotY, arcR, Math.PI * 0.5 - angle, Math.PI * 0.5 + angle);
+    if (sign === -1) {
+      ctx.arc(0, spotY, arcR, Math.PI * 0.5 - angle, Math.PI * 0.5 + angle);
     } else {
-      ctx.arc(midX, spotY, arcR, -Math.PI * 0.5 - angle, -Math.PI * 0.5 + angle);
+      ctx.arc(0, spotY, arcR, -Math.PI * 0.5 - angle, -Math.PI * 0.5 + angle);
     }
     ctx.stroke();
   };
 
-  drawBox(true);
-  drawBox(false);
+  drawBox(-1);
+  drawBox(1);
 
   // Corner arcs
-  const cR = 26;
+  const cR = Math.max(16, 1.5 * pxPerM);
   ctx.beginPath();
-  ctx.arc(mx, my, cR, 0, Math.PI * 0.5);
+  ctx.arc(-pw * 0.5, -ph * 0.5, cR, 0, Math.PI * 0.5);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(mx + pw, my, cR, Math.PI * 0.5, Math.PI);
+  ctx.arc(pw * 0.5, -ph * 0.5, cR, Math.PI * 0.5, Math.PI);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(mx + pw, my + ph, cR, Math.PI, Math.PI * 1.5);
+  ctx.arc(pw * 0.5, ph * 0.5, cR, Math.PI, Math.PI * 1.5);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(mx, my + ph, cR, Math.PI * 1.5, Math.PI * 2);
+  ctx.arc(-pw * 0.5, ph * 0.5, cR, Math.PI * 1.5, Math.PI * 2);
   ctx.stroke();
 
-  const vig = ctx.createRadialGradient(midX, midY, W * 0.22, midX, midY, H * 0.65);
+  ctx.restore();
+
+  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, shortSide * 0.22, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.55);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
   vig.addColorStop(1, 'rgba(0,0,0,0.46)');
   ctx.fillStyle = vig;
@@ -522,8 +626,8 @@ function createBasketballTextures(): {
   map: THREE.CanvasTexture;
   bumpMap: THREE.CanvasTexture;
 } {
-  const W = 512;
-  const H = 256;
+  const W = 1024;
+  const H = 512;
   const [canvas, ctx] = makeCanvas(W, H);
   const [bCanvas, bCtx] = makeCanvas(W, H);
 
@@ -532,7 +636,7 @@ function createBasketballTextures(): {
   const cd = cImg.data;
   const bd = bImg.data;
 
-  const seamW = 0.036;
+  const seamW = 0.024;
 
   for (let py = 0; py < H; py++) {
     const phi = ((py + 0.5) / H) * Math.PI;
@@ -544,38 +648,42 @@ function createBasketballTextures(): {
       const nx = -sinPhi * Math.cos(theta);
       const nz = sinPhi * Math.sin(theta);
 
-      // Authentic basketball rib equations on 3D unit sphere
+      // True 8-panel NBA/FIBA basketball seams on 3D unit sphere:
+      // 1) Horizontal equator (ny = 0)
+      // 2) Orthogonal meridian (nx = 0, passes through +/-Y and +/-Z, never crosses +/-X caps)
+      // 3) Two symmetrical curved side loops encircling +/-X with normalized SDF thickness
       const dEq = Math.abs(ny);
-      const dMer = Math.abs(nz);
-      const ang = Math.atan2(ny, nz);
+      const dMer = Math.abs(nx);
+      const psi = Math.atan2(ny, nz);
       const poleAng = Math.acos(Math.min(1, Math.abs(nx)));
-      const target = 0.72 + 0.24 * Math.cos(2 * ang);
-      const dOval = Math.abs(poleAng - target);
+      const targetAlpha = 0.84 + 0.22 * Math.cos(2 * psi);
+      const gradNorm = Math.hypot(1, (-0.44 * Math.sin(2 * psi)) / Math.max(0.28, Math.sin(poleAng)));
+      const dOval = Math.abs(poleAng - targetAlpha) / gradNorm;
 
       const minDist = Math.min(dEq, dMer, dOval);
       const idx = (py * W + px) * 4;
 
-      // Dense 3D pebble bumps independent of UV pole pinching
+      // Dense 3D pebble dimples independent of UV pole pinching
       const pebble =
-        Math.sin(nx * 145) * Math.sin(ny * 145) * Math.sin(nz * 145) * 0.5 +
-        (hash2D(px * 0.9, py * 0.9) - 0.5) * 0.3;
+        Math.sin(nx * 165) * Math.sin(ny * 165) * Math.sin(nz * 165) * 0.5 +
+        (hash2D(px * 0.9, py * 0.9) - 0.5) * 0.28;
 
       if (minDist < seamW) {
-        const edge = Math.min(1, (seamW - minDist) / 0.012);
-        cd[idx] = Math.round(18 + (1 - edge) * 60);
-        cd[idx + 1] = Math.round(14 + (1 - edge) * 28);
-        cd[idx + 2] = Math.round(12 + (1 - edge) * 16);
+        const edge = Math.min(1, (seamW - minDist) / 0.008);
+        cd[idx] = Math.round(16 + (1 - edge) * 58);
+        cd[idx + 1] = Math.round(13 + (1 - edge) * 26);
+        cd[idx + 2] = Math.round(11 + (1 - edge) * 14);
         cd[idx + 3] = 255;
-        const bVal = Math.round(40 + (1 - edge) * 60);
+        const bVal = Math.round(32 + (1 - edge) * 65);
         bd[idx] = bd[idx + 1] = bd[idx + 2] = bVal;
         bd[idx + 3] = 255;
       } else {
         const shade = pebble * 15;
-        cd[idx] = Math.max(0, Math.min(255, Math.round(184 + shade)));
-        cd[idx + 1] = Math.max(0, Math.min(255, Math.round(58 + shade * 0.6)));
-        cd[idx + 2] = Math.max(0, Math.min(255, Math.round(18 + shade * 0.35)));
+        cd[idx] = Math.max(0, Math.min(255, Math.round(186 + shade)));
+        cd[idx + 1] = Math.max(0, Math.min(255, Math.round(62 + shade * 0.6)));
+        cd[idx + 2] = Math.max(0, Math.min(255, Math.round(19 + shade * 0.35)));
         cd[idx + 3] = 255;
-        const bVal = Math.max(0, Math.min(255, Math.round(165 + pebble * 74)));
+        const bVal = Math.max(0, Math.min(255, Math.round(168 + pebble * 74)));
         bd[idx] = bd[idx + 1] = bd[idx + 2] = bVal;
         bd[idx + 3] = 255;
       }
@@ -911,7 +1019,8 @@ export function createWallAoTexture(baseHex: string): THREE.CanvasTexture {
 }
 
 export class TextureBank {
-  private readonly cache = new Map<ThemeId, ThemeTextureSet>();
+  private readonly floorCache = new Map<string, FloorTextureSet>();
+  private readonly itemCache = new Map<ThemeId, ItemTextureSet>();
   private contactShadowTex: THREE.CanvasTexture | null = null;
   private readonly wallAoCache = new Map<string, THREE.CanvasTexture>();
 
@@ -931,52 +1040,34 @@ export class TextureBank {
     return tex;
   }
 
-  get(id: ThemeId): ThemeTextureSet {
-    const hit = this.cache.get(id);
+  private getItems(id: ThemeId): ItemTextureSet {
+    const hit = this.itemCache.get(id);
     if (hit) return hit;
 
-    let set: ThemeTextureSet;
+    let items: ItemTextureSet;
     switch (id) {
       case 'tennis': {
         const ball = createTennisBallTextures();
-        set = {
-          floorMap: createTennisCourtTexture(),
-          itemMap: ball.map,
-          itemBumpMap: ball.bumpMap,
-        };
+        items = { itemMap: ball.map, itemBumpMap: ball.bumpMap };
         break;
       }
       case 'basketball': {
-        const court = createBasketballCourtTextures();
         const ball = createBasketballTextures();
-        set = {
-          floorMap: court.map,
-          floorRoughnessMap: court.roughnessMap,
-          itemMap: ball.map,
-          itemBumpMap: ball.bumpMap,
-        };
+        items = { itemMap: ball.map, itemBumpMap: ball.bumpMap };
         break;
       }
       case 'soccer': {
         const ball = createSoccerBallTextures();
-        set = {
-          floorMap: createSoccerPitchTexture(),
-          itemMap: ball.map,
-          itemBumpMap: ball.bumpMap,
-        };
+        items = { itemMap: ball.map, itemBumpMap: ball.bumpMap };
         break;
       }
       case 'diamonds': {
-        set = {
-          floorMap: createVaultFloorTexture('#050608'),
-          sparkleMap: createDiamondSparkleTexture(),
-        };
+        items = { sparkleMap: createDiamondSparkleTexture() };
         break;
       }
       case 'gold': {
         const ingot = createGoldIngotTextures();
-        set = {
-          floorMap: createVaultFloorTexture('#060503'),
+        items = {
           itemMap: ingot.map,
           itemBumpMap: ingot.bumpMap,
           itemRoughnessMap: ingot.roughnessMap,
@@ -984,22 +1075,73 @@ export class TextureBank {
         break;
       }
     }
+    this.itemCache.set(id, items);
+    return items;
+  }
 
-    this.cache.set(id, set);
-    return set;
+  private getFloor(id: ThemeId, aspect: number): FloorTextureSet {
+    const isVault = id === 'diamonds' || id === 'gold';
+    const bucket = isVault ? 'vault' : (Math.round(Math.max(0.4, Math.min(2.6, aspect)) * 20) / 20).toFixed(2);
+    const key = `${id}_${bucket}`;
+    const hit = this.floorCache.get(key);
+    if (hit) return hit;
+
+    let floor: FloorTextureSet;
+    switch (id) {
+      case 'tennis':
+        floor = { floorMap: createTennisCourtTexture(Number(bucket)) };
+        break;
+      case 'basketball': {
+        const court = createBasketballCourtTextures(Number(bucket));
+        floor = { floorMap: court.map, floorRoughnessMap: court.roughnessMap };
+        break;
+      }
+      case 'soccer':
+        floor = { floorMap: createSoccerPitchTexture(Number(bucket)) };
+        break;
+      case 'diamonds':
+        floor = { floorMap: createVaultFloorTexture('#050608') };
+        break;
+      case 'gold':
+        floor = { floorMap: createVaultFloorTexture('#060503') };
+        break;
+    }
+
+    if (this.floorCache.size >= 8) {
+      const oldestKey = this.floorCache.keys().next().value;
+      if (oldestKey) {
+        const old = this.floorCache.get(oldestKey);
+        old?.floorMap.dispose();
+        old?.floorRoughnessMap?.dispose();
+        old?.floorBumpMap?.dispose();
+        this.floorCache.delete(oldestKey);
+      }
+    }
+
+    this.floorCache.set(key, floor);
+    return floor;
+  }
+
+  get(id: ThemeId, aspect = 9 / 19.5): ThemeTextureSet {
+    const floor = this.getFloor(id, aspect);
+    const items = this.getItems(id);
+    return { ...floor, ...items };
   }
 
   dispose(): void {
-    for (const set of this.cache.values()) {
-      set.floorMap.dispose();
-      set.floorRoughnessMap?.dispose();
-      set.floorBumpMap?.dispose();
-      set.itemMap?.dispose();
-      set.itemBumpMap?.dispose();
-      set.itemRoughnessMap?.dispose();
-      set.sparkleMap?.dispose();
+    for (const f of this.floorCache.values()) {
+      f.floorMap.dispose();
+      f.floorRoughnessMap?.dispose();
+      f.floorBumpMap?.dispose();
     }
-    this.cache.clear();
+    this.floorCache.clear();
+    for (const it of this.itemCache.values()) {
+      it.itemMap?.dispose();
+      it.itemBumpMap?.dispose();
+      it.itemRoughnessMap?.dispose();
+      it.sparkleMap?.dispose();
+    }
+    this.itemCache.clear();
     this.contactShadowTex?.dispose();
     this.contactShadowTex = null;
     for (const tex of this.wallAoCache.values()) {

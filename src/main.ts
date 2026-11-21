@@ -1,10 +1,10 @@
 import './styles/main.css';
+import { HapticsEngine } from './audio/HapticsEngine';
 import { SoundEngine } from './audio/SoundEngine';
 import { PhysicsWorld } from './engine/PhysicsWorld';
 import { SceneRenderer } from './engine/SceneRenderer';
 import { MotionController, MotionSnapshot } from './sensors/MotionController';
 import { isThemeId, THEME_LIST, THEMES_BY_ID, ThemeId } from './themes/types';
-import { WatchOverlay } from './ui/WatchOverlay';
 
 function resolveInitialTheme(): ThemeId {
   const params = new URLSearchParams(window.location.search);
@@ -20,6 +20,8 @@ const sensorCta = document.getElementById('sensorCta') as HTMLButtonElement;
 const mobileDock = document.getElementById('mobileDock') as HTMLElement;
 const mobileSwatches = document.getElementById('mobileSwatches') as HTMLElement;
 const mobileAudioBtn = document.getElementById('mobileAudioBtn') as HTMLButtonElement;
+const mobileHapticsBtn = document.getElementById('mobileHapticsBtn') as HTMLButtonElement;
+const mobileFullscreenBtn = document.getElementById('mobileFullscreenBtn') as HTMLButtonElement;
 
 const desktopThemes = document.getElementById('desktopThemes') as HTMLElement;
 const themeSubtitle = document.getElementById('themeSubtitle') as HTMLElement;
@@ -30,6 +32,7 @@ const resetTiltBtn = document.getElementById('resetTiltBtn') as HTMLButtonElemen
 const shakeBtn = document.getElementById('shakeBtn') as HTMLButtonElement;
 const demoBtn = document.getElementById('demoBtn') as HTMLButtonElement;
 const audioBtn = document.getElementById('audioBtn') as HTMLButtonElement;
+const hapticsBtn = document.getElementById('hapticsBtn') as HTMLButtonElement;
 const fullBleedBtn = document.getElementById('fullBleedBtn') as HTMLButtonElement;
 const exitFullBleedBtn = document.getElementById('exitFullBleedBtn') as HTMLButtonElement;
 const telemetryText = document.getElementById('telemetryText') as HTMLElement;
@@ -37,9 +40,18 @@ const telemetryText = document.getElementById('telemetryText') as HTMLElement;
 let activeThemeId: ThemeId = resolveInitialTheme();
 
 const sound = new SoundEngine();
+const haptics = new HapticsEngine();
 const renderer = new SceneRenderer(canvas, THEMES_BY_ID[activeThemeId]);
-const physics = new PhysicsWorld(renderer.getBounds(), (speed) => sound.playImpact(speed));
-const overlay = new WatchOverlay(screenStage);
+const physics = new PhysicsWorld(
+  renderer.getBounds(),
+  (evt) => {
+    sound.playImpact(evt.speed);
+    haptics.playCollision(evt, activeThemeId);
+  },
+  () => {
+    haptics.playTouchNudge(activeThemeId, true);
+  },
+);
 
 let dimTimer: number | null = null;
 function wakeMobileDock(): void {
@@ -60,7 +72,7 @@ for (const spec of THEME_LIST) {
   dBtn.dataset.theme = spec.id;
   dBtn.setAttribute('role', 'tab');
   dBtn.innerHTML = `<span class="theme-swatch-dot" style="background: linear-gradient(135deg, ${spec.swatchColor}, ${spec.swatchAccent})"></span><span>${spec.labelZh}</span>`;
-  dBtn.addEventListener('click', () => selectTheme(spec.id));
+  dBtn.addEventListener('click', () => selectTheme(spec.id, true));
   desktopThemes.appendChild(dBtn);
   desktopButtons.set(spec.id, dBtn);
 
@@ -72,20 +84,23 @@ for (const spec of THEME_LIST) {
   mBtn.style.background = `linear-gradient(135deg, ${spec.swatchColor}, ${spec.swatchAccent})`;
   mBtn.addEventListener('click', () => {
     wakeMobileDock();
-    selectTheme(spec.id);
+    selectTheme(spec.id, true);
   });
   mobileSwatches.appendChild(mBtn);
   mobileButtons.set(spec.id, mBtn);
 }
 
-function selectTheme(id: ThemeId): void {
+function selectTheme(id: ThemeId, fromGesture = false): void {
   activeThemeId = id;
   const spec = THEMES_BY_ID[id];
   const meta = physics.spawnForTheme(spec);
   renderer.applyTheme(spec, meta);
-  overlay.setLayout(spec.overlayLayout);
   sound.setTheme(id);
   themeSubtitle.textContent = spec.labelEn;
+
+  if (fromGesture) {
+    haptics.playThemeSwitch(id);
+  }
 
   for (const [k, btn] of desktopButtons) {
     const active = k === id;
@@ -106,6 +121,13 @@ function syncAudioUi(): void {
   mobileAudioBtn.dataset.muted = String(!on);
 }
 
+function syncHapticsUi(): void {
+  const on = haptics.isEnabled();
+  hapticsBtn.setAttribute('aria-pressed', String(on));
+  hapticsBtn.textContent = on ? '震动已开' : '震动反馈';
+  mobileHapticsBtn.setAttribute('aria-pressed', String(on));
+}
+
 function updateUiFromMotion(snap: MotionSnapshot): void {
   const modeLabel =
     snap.mode === 'sensor' ? '传感器实时' : snap.mode === 'demo' ? '自动演示' : '倾角模拟';
@@ -124,15 +146,20 @@ function updateUiFromMotion(snap: MotionSnapshot): void {
 }
 
 const motion = new MotionController({
-  onShake: (strength) => physics.applyShakeImpulse(strength),
+  onShake: (strength) => {
+    physics.applyShakeImpulse(strength);
+    haptics.playShake(strength, false);
+  },
   onUpdate: (snap) => updateUiFromMotion(snap),
 });
 
 sensorCta.addEventListener('click', async () => {
+  haptics.playUiTap();
   const granted = await motion.requestPermission();
   if (granted) {
     sensorCta.hidden = true;
     physics.applyShakeImpulse(0.65);
+    haptics.playShake(0.65, true);
   }
 });
 
@@ -166,18 +193,22 @@ gyroPad.addEventListener('pointerup', stopPadDrag);
 gyroPad.addEventListener('pointercancel', stopPadDrag);
 
 resetTiltBtn.addEventListener('click', () => {
+  haptics.playUiTap();
   motion.setSimulatedTilt(0, -0.92);
 });
 
 shakeBtn.addEventListener('click', () => {
   physics.applyShakeImpulse(1.15);
+  haptics.playShake(1.15, true);
 });
 
 demoBtn.addEventListener('click', () => {
+  haptics.playUiTap();
   motion.toggleDemo();
 });
 
 const toggleAudio = async () => {
+  haptics.playUiTap();
   await sound.toggle();
   syncAudioUi();
   wakeMobileDock();
@@ -185,17 +216,90 @@ const toggleAudio = async () => {
 audioBtn.addEventListener('click', () => void toggleAudio());
 mobileAudioBtn.addEventListener('click', () => void toggleAudio());
 
-function setFullBleed(full: boolean): void {
+const toggleHaptics = () => {
+  haptics.toggle();
+  syncHapticsUi();
+  wakeMobileDock();
+};
+hapticsBtn.addEventListener('click', toggleHaptics);
+mobileHapticsBtn.addEventListener('click', toggleHaptics);
+
+function getFullscreenElement(): Element | null {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null };
+  return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+}
+
+function applyFullBleedState(full: boolean): void {
   appShell.classList.toggle('is-fullbleed', full);
   fullBleedBtn.setAttribute('aria-pressed', String(full));
+  mobileFullscreenBtn.setAttribute('aria-pressed', String(full));
   exitFullBleedBtn.hidden = !full;
   requestAnimationFrame(() => syncResize());
 }
 
-fullBleedBtn.addEventListener('click', () => {
-  setFullBleed(!appShell.classList.contains('is-fullbleed'));
-});
-exitFullBleedBtn.addEventListener('click', () => setFullBleed(false));
+async function enterFullscreen(): Promise<void> {
+  haptics.playUiTap();
+  applyFullBleedState(true);
+
+  const root = document.documentElement as HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void> | void;
+  };
+  try {
+    if (root.requestFullscreen) {
+      await root.requestFullscreen();
+    } else if (root.webkitRequestFullscreen) {
+      await root.webkitRequestFullscreen();
+    }
+  } catch {
+    // Fallback smoothly to CSS immersive full-bleed mode (e.g. iOS Safari / automated preview)
+  }
+
+  window.scrollTo(0, 1);
+}
+
+async function exitFullscreen(): Promise<void> {
+  haptics.playUiTap();
+  applyFullBleedState(false);
+
+  const doc = document as Document & {
+    webkitExitFullscreen?: () => Promise<void> | void;
+  };
+  try {
+    if (getFullscreenElement()) {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (doc.webkitExitFullscreen) {
+        await doc.webkitExitFullscreen();
+      }
+    }
+  } catch {
+    // Ignore if already exited
+  }
+}
+
+const toggleFullscreen = () => {
+  if (appShell.classList.contains('is-fullbleed') || getFullscreenElement()) {
+    void exitFullscreen();
+  } else {
+    void enterFullscreen();
+  }
+};
+
+fullBleedBtn.addEventListener('click', toggleFullscreen);
+mobileFullscreenBtn.addEventListener('click', toggleFullscreen);
+exitFullBleedBtn.addEventListener('click', () => void exitFullscreen());
+
+const handleNativeFullscreenChange = () => {
+  const nativeActive = Boolean(getFullscreenElement());
+  if (!nativeActive && appShell.classList.contains('is-fullbleed')) {
+    // Keep CSS state synced when user exits native fullscreen via Esc or OS gesture
+    applyFullBleedState(false);
+  } else if (nativeActive) {
+    applyFullBleedState(true);
+  }
+};
+document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
 
 // Touch/Pointer physics stirring + horizontal top-zone theme swipe + double-tap bounce
 let canvasDragging = false;
@@ -211,6 +315,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const now = performance.now();
   if (now - lastTapMs < 280) {
     physics.applyShakeImpulse(0.85);
+    haptics.playShake(0.85, true);
     lastTapMs = 0;
   } else {
     lastTapMs = now;
@@ -236,7 +341,7 @@ canvas.addEventListener('pointerup', (e) => {
     if (Math.abs(dx) > 54 && dy < 48) {
       const idx = THEME_LIST.findIndex((t) => t.id === activeThemeId);
       const nextIdx = (idx + (dx < 0 ? 1 : -1) + THEME_LIST.length) % THEME_LIST.length;
-      selectTheme(THEME_LIST[nextIdx].id);
+      selectTheme(THEME_LIST[nextIdx].id, true);
     }
   }
   swipeStart = null;
@@ -250,34 +355,48 @@ canvas.addEventListener('pointercancel', () => {
   physics.setPointerPusher(false);
 });
 
-// Resize sync via ResizeObserver
+// Resize sync across ResizeObserver, visualViewport & screen orientation changes
 function syncResize(): void {
   const rect = screenStage.getBoundingClientRect();
   if (rect.width < 10 || rect.height < 10) return;
-  const nextBounds = renderer.resize(rect.width, rect.height);
-  physics.resizeBounds(nextBounds);
+  const { bounds, needsRespawn } = renderer.resize(rect.width, rect.height);
+  if (needsRespawn) {
+    physics.resizeBounds(bounds);
+    const spec = THEMES_BY_ID[activeThemeId];
+    const meta = physics.spawnForTheme(spec);
+    renderer.applyTheme(spec, meta);
+  } else {
+    physics.resizeBounds(bounds);
+  }
 }
 
 const resizeObserver = new ResizeObserver(() => syncResize());
 resizeObserver.observe(screenStage);
+window.visualViewport?.addEventListener('resize', () => syncResize());
+window.addEventListener('orientationchange', () => window.setTimeout(syncResize, 120));
 
 // Initialize default theme & UI
 syncResize();
-selectTheme(activeThemeId);
+selectTheme(activeThemeId, false);
 syncAudioUi();
+syncHapticsUi();
 wakeMobileDock();
 
 // Expose clean diagnostic handle for verification
 (window as unknown as Record<string, unknown>).__GRAVITY_WATCH__ = {
-  selectTheme,
+  selectTheme: (id: ThemeId) => selectTheme(id, true),
   getTheme: () => activeThemeId,
   setTilt: (x: number, y: number) => motion.setSimulatedTilt(x, y),
-  shake: (s = 1.1) => physics.applyShakeImpulse(s),
+  shake: (s = 1.1) => {
+    physics.applyShakeImpulse(s);
+    haptics.playShake(s, false);
+  },
   getStats: () => ({
     theme: activeThemeId,
     bodyCount: physics.bodies.length,
     bounds: renderer.getBounds(),
     motion: motion.getSnapshot(),
+    haptics: haptics.getStats(),
   }),
 };
 
@@ -292,8 +411,8 @@ function animate(nowMs: number): void {
   screenStage.style.setProperty('--tilt-y', snap.tilt.y.toFixed(3));
   physics.setGravity(snap.gravity.x, snap.gravity.y, snap.gravity.z);
   physics.step(dt);
-  overlay.updateComplications(snap.kineticLevel);
-  renderer.render(physics, snap.tilt, nowMs / 1000);
+  haptics.updateRolling(physics.getMotionMetrics(), activeThemeId, nowMs);
+  renderer.render(physics, snap.tilt, nowMs / 1000, haptics.getRecoilOffset(dt));
 
   requestAnimationFrame(animate);
 }

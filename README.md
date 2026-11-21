@@ -1,8 +1,8 @@
 # Gravity Watch Face · 物理重力交互表盘
 
-中文：基于 Three.js PBR、HDR 工作室环境光与 cannon-es 3D 刚体物理引擎打造的手机全屏重力互动表盘。支持真实设备运动与朝向传感器（兼容 iOS 权限授权与 Android 自动监听），倾斜手机即可驱动网球场、钻石库、篮球场、黄金库与足球场五套主题中的物体翻滚、碰撞、堆积并伴随动态接触阴影与桌面 360° 倾角模拟。
+中文：基于 Three.js PBR、HDR 工作室环境光与 cannon-es 3D 刚体物理引擎打造的手机全屏重力互动空间。自适应横竖屏与全面屏尺寸，支持一键全屏与纯净无时钟展示；倾斜手机即可驱动网球场、钻石库、标准划线篮球场（8 片式纹理篮球）、黄金库与足球场五套主题实时翻滚，配多通道细腻震动反馈与桌面 360° 倾角模拟。
 
-English: A mobile-first 3D physics interactive watch face powered by Three.js PBR, procedural HDR studio lighting, and cannon-es rigid-body physics. Driven by real device motion and orientation sensors (with iOS permission support and desktop 360° tilt simulation), tilting your phone tumbles objects across five themes—Tennis, Diamonds, Basketball, Gold Bars, and Soccer—with grounded contact shadows and natural specular fire.
+English: A mobile-first 3D physics interactive playground powered by Three.js PBR, procedural HDR studio lighting, and cannon-es rigid-body physics. Adapts cleanly across mobile screen sizes and orientations with one-tap fullscreen and a distraction-free floor-and-object view. Tilting your phone tumbles objects across five themes—Tennis, Diamonds, regulation Basketball court & 8-panel ball, Gold Bars, and Soccer—with layered haptic feedback and desktop 360° tilt simulation.
 
 ![Gravity Watch Face screenshot](./assets/screenshot.png)
 

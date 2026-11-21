@@ -169,8 +169,10 @@ export class SceneRenderer {
     const fovRad = THREE.MathUtils.degToRad(this.camera.fov);
     const halfFovTan = Math.tan(fovRad * 0.5);
 
-    const estW = 2 * halfFovTan * this.cameraBaseZ * aspect;
-    const depth = Math.max(1.25, Math.min(2.6, estW * this.currentTheme.boxDepthFactor));
+    const estH = 2 * halfFovTan * this.cameraBaseZ;
+    const estW = estH * aspect;
+    const refSpan = Math.min(estW, estH);
+    const depth = Math.max(1.25, Math.min(2.6, refSpan * this.currentTheme.boxDepthFactor));
 
     const frontDist = this.cameraBaseZ - depth * 0.5;
     const frontH = 2 * halfFovTan * frontDist;
@@ -193,7 +195,9 @@ export class SceneRenderer {
     this.keyLight.shadow.camera.updateProjectionMatrix();
   }
 
-  resize(width: number, height: number): BoundsSize {
+  resize(width: number, height: number): { bounds: BoundsSize; needsRespawn: boolean } {
+    const prevRef = Math.min(this.bounds.halfW, this.bounds.halfH);
+
     this.width = Math.max(120, Math.round(width));
     this.height = Math.max(120, Math.round(height));
 
@@ -207,7 +211,12 @@ export class SceneRenderer {
 
     this.recomputeBounds();
     this.rebuildBox();
-    return this.getBounds();
+
+    const nextRef = Math.min(this.bounds.halfW, this.bounds.halfH);
+    const needsRespawn =
+      this.itemMeshes.length > 0 && Math.abs(nextRef - prevRef) / Math.max(0.01, prevRef) > 0.12;
+
+    return { bounds: this.getBounds(), needsRespawn };
   }
 
   private clearBox(): void {
@@ -228,7 +237,8 @@ export class SceneRenderer {
   private rebuildBox(): void {
     this.clearBox();
 
-    const texSet = this.texBank.get(this.currentTheme.id);
+    const aspect = this.width / Math.max(1, this.height);
+    const texSet = this.texBank.get(this.currentTheme.id, aspect);
     const fullW = (this.bounds.halfW + 0.035) * 2;
     const fullH = (this.bounds.halfH + 0.035) * 2;
     const depth = this.bounds.depth;
@@ -342,10 +352,12 @@ export class SceneRenderer {
     this.rebuildBox();
     this.clearItems();
 
-    const texSet = this.texBank.get(theme.id);
+    const aspect = this.width / Math.max(1, this.height);
+    const texSet = this.texBank.get(theme.id, aspect);
     const contactTex = this.texBank.getContactShadow();
     const fullW = (this.bounds.halfW + 0.035) * 2;
-    const baseSize = fullW * theme.sizeFactor;
+    const fullH = (this.bounds.halfH + 0.035) * 2;
+    const baseSize = Math.min(fullW, fullH) * theme.sizeFactor;
 
     if (theme.shapeKind === 'sphere') {
       this.sharedItemGeo = new THREE.SphereGeometry(baseSize, 32, 24);
@@ -477,7 +489,12 @@ export class SceneRenderer {
     };
   }
 
-  render(physics: PhysicsWorld, tilt: { x: number; y: number }, timeSec: number): void {
+  render(
+    physics: PhysicsWorld,
+    tilt: { x: number; y: number },
+    timeSec: number,
+    recoil: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 },
+  ): void {
     const bodies = physics.bodies;
     const n = Math.min(bodies.length, this.itemMeshes.length);
     for (let i = 0; i < n; i++) {
@@ -496,7 +513,11 @@ export class SceneRenderer {
     this.parallax.x = this.smoothTilt.x * 0.25;
     this.parallax.y = this.smoothTilt.y * 0.21;
 
-    this.camera.position.set(this.parallax.x, this.parallax.y, this.cameraBaseZ);
+    this.camera.position.set(
+      this.parallax.x + recoil.x,
+      this.parallax.y + recoil.y,
+      this.cameraBaseZ + recoil.z,
+    );
     this.camera.lookAt(0, 0, -this.bounds.depth * 0.25);
 
     const rotX = this.smoothTilt.y * 0.42;

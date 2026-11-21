@@ -3,9 +3,7 @@ import { ThemeId } from '../themes/types';
 export class SoundEngine {
   private ctx: AudioContext | null = null;
   private enabled = false;
-  private hapticsEnabled = true;
   private lastPlayMs = 0;
-  private lastVibrateMs = 0;
   private theme: ThemeId = 'diamonds';
 
   isEnabled(): boolean {
@@ -49,15 +47,6 @@ export class SoundEngine {
 
   playImpact(speed: number): void {
     const now = performance.now();
-
-    if (this.hapticsEnabled && typeof navigator.vibrate === 'function' && speed > 6.5 && now - this.lastVibrateMs > 95) {
-      this.lastVibrateMs = now;
-      try {
-        navigator.vibrate(Math.min(12, Math.round(speed * 0.7)));
-      } catch {
-        // Ignore desktop/unsupported errors
-      }
-    }
 
     if (!this.enabled || !this.ctx || this.ctx.state !== 'running') return;
     if (now - this.lastPlayMs < 72) return;

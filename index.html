@@ -12,16 +12,14 @@
     <meta name="apple-mobile-web-app-title" content="GravityWatch" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>Gravity Watch Face · 物理重力交互表盘</title>
+    <title>Gravity Watch Face · 3D 物理重力互动空间</title>
     <script defer src="https://cloud.umami.is/script.js" data-website-id="e01c9f78-4607-4e60-b01c-77c8190b12b4"></script>
   </head>
   <body>
     <main class="app-shell" id="appShell">
-      <section class="screen-stage" id="screenStage" aria-label="物理重力交互表盘屏幕">
+      <section class="screen-stage" id="screenStage" aria-label="物理重力互动屏幕">
         <canvas class="physics-canvas" id="physicsCanvas"></canvas>
         <div class="glass-sheen" aria-hidden="true"></div>
-
-        <!-- Watch clock & complications overlay mounted here -->
 
         <button class="sensor-cta" id="sensorCta" type="button" hidden>
           <span class="sensor-dot"></span>
@@ -29,12 +27,37 @@
         </button>
 
         <div class="mobile-dock" id="mobileDock">
-          <div class="mobile-swatch-bar" id="mobileSwatches" role="tablist" aria-label="切换表盘主题"></div>
+          <div class="mobile-swatch-bar" id="mobileSwatches" role="tablist" aria-label="切换场景主题"></div>
           <button class="mobile-icon-btn" id="mobileAudioBtn" type="button" aria-label="切换碰撞音效" title="碰撞音效">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M11 5L6 9H2v6h4l5 4V5z" />
               <path class="sound-wave" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />
               <path class="sound-mute-x" d="M16 9l5 6M21 9l-5 6" />
+            </svg>
+          </button>
+          <button
+            class="mobile-icon-btn"
+            id="mobileHapticsBtn"
+            type="button"
+            aria-label="切换震动反馈"
+            aria-pressed="true"
+            title="震动反馈"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="8" y="4" width="8" height="16" rx="2" />
+              <path class="haptic-waves" d="M4.5 8.5v7M2 10.5v3M19.5 8.5v7M22 10.5v3" />
+            </svg>
+          </button>
+          <button
+            class="mobile-icon-btn"
+            id="mobileFullscreenBtn"
+            type="button"
+            aria-label="一键全屏"
+            aria-pressed="false"
+            title="一键全屏"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
             </svg>
           </button>
           <a
@@ -55,8 +78,8 @@
       <aside class="side-rail" id="sideRail" aria-label="桌面调试与传感器模拟面板">
         <header class="rail-header">
           <div>
-            <p class="rail-eyebrow">GRAVITY WATCH FACE</p>
-            <h1 class="rail-title">物理交互表盘</h1>
+            <p class="rail-eyebrow">GRAVITY PLAYGROUND</p>
+            <h1 class="rail-title">物理重力桌面</h1>
           </div>
           <span class="mode-badge" id="modeBadge" data-mode="simulated">倾角模拟</span>
         </header>
@@ -91,14 +114,15 @@
             <button class="action-btn" id="shakeBtn" type="button">摇一摇</button>
             <button class="action-btn" id="demoBtn" type="button" aria-pressed="false">自动演示</button>
             <button class="action-btn" id="audioBtn" type="button" aria-pressed="false">碰撞音效</button>
-            <button class="action-btn" id="fullBleedBtn" type="button" aria-pressed="false">铺满窗口</button>
+            <button class="action-btn" id="hapticsBtn" type="button" aria-pressed="true">震动已开</button>
+            <button class="action-btn action-btn--wide" id="fullBleedBtn" type="button" aria-pressed="false">一键全屏</button>
           </div>
         </section>
 
         <footer class="telemetry-bar" id="telemetryBar">
           <span>G: <strong id="telemetryText">0.0, -24.0, -7.5</strong></span>
           <span class="telemetry-meta">
-            <span class="app-version">v1.0.0</span>
+            <span class="app-version">v1.0.1</span>
             <span aria-hidden="true">·</span>
             <a
               class="repo-link"
@@ -111,7 +135,7 @@
       </aside>
 
       <button class="exit-fullbleed-btn" id="exitFullBleedBtn" type="button" hidden>
-        退出铺满
+        退出全屏
       </button>
     </main>
 
