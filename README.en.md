@@ -20,3 +20,5 @@ For mobile sensor testing on your local network, run `npm run dev:https`.
 Publish the Cloudflare Worker from `main` with `npm run deploy`.
 
 <a href="https://gravity-watch-face.xiaosang.cc/"><img src="assets/qr.png" width="112" alt="Scan to open the site"></a>
+
+Cloudflare Workers Builds runs `npm run build` and deploys the production Worker after `git push origin main`.

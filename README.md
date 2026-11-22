@@ -20,3 +20,5 @@ npm run dev
 从主分支 `main` 运行 `npm run deploy`，发布到已配置的 Cloudflare Worker。
 
 <a href="https://gravity-watch-face.xiaosang.cc/"><img src="assets/qr.png" width="112" alt="扫码打开网站"></a>
+
+执行 `git push origin main` 后，Cloudflare Workers Builds 会运行 `npm run build`，并部署正式站。
