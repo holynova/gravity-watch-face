@@ -1,37 +1,22 @@
-# Gravity Watch Face · 物理重力交互表盘
+# 物理重力交互表盘
 
-中文：基于 Three.js PBR、HDR 工作室环境光与 cannon-es 3D 刚体物理引擎打造的手机全屏重力互动空间。自适应横竖屏与全面屏尺寸，支持一键全屏与纯净无时钟展示；倾斜手机即可驱动网球场、钻石库、标准划线篮球场（8 片式纹理篮球）、黄金库与足球场五套主题实时翻滚，配多通道细腻震动反馈与桌面 360° 倾角模拟。
+[English](README.en.md) · [打开网站](https://gravity-watch-face.xiaosang.cc/) · [GitHub](https://github.com/holynova/gravity-watch-face)
 
-English: A mobile-first 3D physics interactive playground powered by Three.js PBR, procedural HDR studio lighting, and cannon-es rigid-body physics. Adapts cleanly across mobile screen sizes and orientations with one-tap fullscreen and a distraction-free floor-and-object view. Tilting your phone tumbles objects across five themes—Tennis, Diamonds, regulation Basketball court & 8-panel ball, Gold Bars, and Soccer—with layered haptic feedback and desktop 360° tilt simulation.
+转动手机，就能看着网球沿球场滚落，或让金条在盒子里重新堆叠。五套场景共用实时刚体物理，横屏和竖屏都能玩。
 
-![Gravity Watch Face screenshot](./assets/screenshot.png)
+<img src="assets/screenshot.png" width="360" alt="手机上的重力互动场景">
 
-## 在线体验 / Live Demo
+选一套场景，用手机倾斜设备，或在桌面拖动倾角模拟器。全屏按钮能展开场地，纯净模式只保留地板和物体。兼容设备还会提供碰撞振动。
 
-- [Cloudflare Demo](https://gravity-watch-face.xiaosang.cc/)
-- [GitHub Repo](https://github.com/holynova/gravity-watch-face)
+## 本地运行
 
-<img src="./assets/qr.png" width="180" alt="扫码访问 Cloudflare 在线体验">
-
-## 本地运行 / Run locally
-
-```bash
+```sh
 npm install
 npm run dev
 ```
 
-For HTTPS mobile sensor testing over LAN:
+局域网真机测试运动传感器时，运行 `npm run dev:https`。
 
-```bash
-npm run dev:https
-```
+从主分支 `main` 运行 `npm run deploy`，发布到已配置的 Cloudflare Worker。
 
-## 发布 / Deploy
-
-```bash
-npm run deploy
-```
-
-Cloudflare Workers · Custom Domain: `gravity-watch-face.xiaosang.cc`
-
-源码与部署配置均在 `main` 主分支维护；在本地构建并手动执行发布，不创建 Cloudflare 专用分支或 GitHub Action。
+<a href="https://gravity-watch-face.xiaosang.cc/"><img src="assets/qr.png" width="112" alt="扫码打开网站"></a>
