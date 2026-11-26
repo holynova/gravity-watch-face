@@ -2020,6 +2020,480 @@ function drawPorcelainStructuralCracks(
   }
 }
 
+function createBouncyCourtFloorTexture(aspect: number): THREE.CanvasTexture {
+  const { W, H } = getFloorCanvasDims(aspect);
+  const [canvas, ctx] = makeCanvas(W, H);
+
+  const grad = ctx.createRadialGradient(W * 0.45, H * 0.35, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.76);
+  grad.addColorStop(0, '#1e2545');
+  grad.addColorStop(0.55, '#151a33');
+  grad.addColorStop(1, '#0d1022');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Clean dark neon arcade floor rings inside playable bounds
+  const padX = W * 0.145;
+  const padY = H * 0.135;
+  const iw = W - padX * 2;
+  const ih = H - padY * 2;
+  ctx.strokeStyle = 'rgba(116, 200, 255, 0.14)';
+  ctx.lineWidth = Math.max(1.5, Math.min(W, H) * 0.003);
+  ctx.beginPath();
+  ctx.roundRect(padX, padY, iw, ih, Math.min(iw, ih) * 0.14);
+  ctx.stroke();
+
+  const r = Math.min(iw, ih) * 0.24;
+  ctx.strokeStyle = 'rgba(255, 92, 162, 0.16)';
+  ctx.beginPath();
+  ctx.arc(W * 0.5, H * 0.5, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  return toTexture(canvas);
+}
+
+function createCuttingMatFloorTexture(aspect: number): THREE.CanvasTexture {
+  const { W, H } = getFloorCanvasDims(aspect);
+  const [canvas, ctx] = makeCanvas(W, H);
+
+  const grad = ctx.createRadialGradient(W * 0.46, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.74);
+  grad.addColorStop(0, '#274d3d');
+  grad.addColorStop(0.65, '#1e3c30');
+  grad.addColorStop(1, '#152c22');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle architect cutting-mat grid inside safe bleed
+  const padX = W * 0.14;
+  const padY = H * 0.13;
+  const iw = W - padX * 2;
+  const ih = H - padY * 2;
+  const step = Math.min(iw, ih) / 8;
+
+  ctx.strokeStyle = 'rgba(225, 245, 232, 0.09)';
+  ctx.lineWidth = 1;
+  for (let x = padX; x <= W - padX + 1; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, padY);
+    ctx.lineTo(x, H - padY);
+    ctx.stroke();
+  }
+  for (let y = padY; y <= H - padY + 1; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(padX, y);
+    ctx.lineTo(W - padX, y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(225, 245, 232, 0.2)';
+  ctx.lineWidth = 1.6;
+  ctx.strokeRect(padX, padY, iw, ih);
+
+  return toTexture(canvas);
+}
+
+function createWoodTrayFloorTextures(aspect: number): FloorTextureSet {
+  const { W, H } = getFloorCanvasDims(aspect);
+  const [canvas, ctx] = makeCanvas(W, H);
+  const [rCanvas, rCtx] = makeCanvas(W, H);
+
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#624329');
+  grad.addColorStop(0.5, '#543822');
+  grad.addColorStop(1, '#442c1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  rCtx.fillStyle = '#a8a8a8';
+  rCtx.fillRect(0, 0, W, H);
+
+  const plankCount = 4;
+  const pw = W / plankCount;
+  const rng = seededRand(5209);
+  for (let p = 0; p < plankCount; p++) {
+    const px = p * pw;
+    for (let g = 0; g < 46; g++) {
+      const gx = px + 4 + rng() * (pw - 8);
+      ctx.strokeStyle = rng() > 0.45 ? 'rgba(255, 214, 165, 0.07)' : 'rgba(24, 12, 5, 0.2)';
+      ctx.lineWidth = 1 + rng() * 1.8;
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.bezierCurveTo(gx + (rng() - 0.5) * 16, H * 0.35, gx + (rng() - 0.5) * 16, H * 0.65, gx, H);
+      ctx.stroke();
+
+      rCtx.strokeStyle = rng() > 0.5 ? 'rgba(130, 130, 130, 0.35)' : 'rgba(195, 195, 195, 0.35)';
+      rCtx.lineWidth = ctx.lineWidth;
+      rCtx.beginPath();
+      rCtx.moveTo(gx, 0);
+      rCtx.lineTo(gx, H);
+      rCtx.stroke();
+    }
+    if (p > 0) {
+      ctx.fillStyle = 'rgba(22, 10, 4, 0.38)';
+      ctx.fillRect(px - 1, 0, 2, H);
+    }
+  }
+
+  return {
+    floorMap: toTexture(canvas),
+    floorRoughnessMap: toTexture(rCanvas, THREE.NoColorSpace),
+  };
+}
+
+function createStoneCourtyardFloorTextures(aspect: number): FloorTextureSet {
+  const { W, H } = getFloorCanvasDims(aspect);
+  const [canvas, ctx] = makeCanvas(W, H);
+  const [rCanvas, rCtx] = makeCanvas(W, H);
+
+  const grad = ctx.createRadialGradient(W * 0.48, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.72);
+  grad.addColorStop(0, '#272c33');
+  grad.addColorStop(1, '#181b20');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  rCtx.fillStyle = '#d4d4d4';
+  rCtx.fillRect(0, 0, W, H);
+
+  // Zen raked basalt grooves
+  const rng = seededRand(3147);
+  for (let i = 0; i < 1800; i++) {
+    const x = rng() * W;
+    const y = rng() * H;
+    ctx.fillStyle = rng() > 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.18)';
+    ctx.fillRect(x, y, 2, 2);
+  }
+  const spacing = Math.max(12, Math.round(W * 0.022));
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+  ctx.lineWidth = 1.4;
+  for (let y = 0; y < H; y += spacing) {
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 24) {
+      const yy = y + Math.sin((x / W) * Math.PI * 3) * 3.5;
+      if (x === 0) ctx.moveTo(x, yy);
+      else ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+  }
+
+  return {
+    floorMap: toTexture(canvas),
+    floorRoughnessMap: toTexture(rCanvas, THREE.NoColorSpace),
+  };
+}
+
+function createTrioLabFloorTextures(aspect: number): FloorTextureSet {
+  const { W, H } = getFloorCanvasDims(aspect);
+  const [canvas, ctx] = makeCanvas(W, H);
+  const [rCanvas, rCtx] = makeCanvas(W, H);
+
+  const grad = ctx.createRadialGradient(W * 0.45, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.74);
+  grad.addColorStop(0, '#ddd6c9');
+  grad.addColorStop(1, '#c9c1b2');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  rCtx.fillStyle = '#c8c8c8';
+  rCtx.fillRect(0, 0, W, H);
+
+  // Subtle mineral travertine flecks & specimen divider marks
+  const rng = seededRand(6119);
+  for (let i = 0; i < 1200; i++) {
+    const x = rng() * W;
+    const y = rng() * H;
+    ctx.fillStyle = rng() > 0.5 ? 'rgba(255, 252, 245, 0.28)' : 'rgba(110, 102, 88, 0.1)';
+    ctx.fillRect(x, y, 2, 1.5);
+  }
+
+  const padX = W * 0.145;
+  const padY = H * 0.14;
+  ctx.strokeStyle = 'rgba(92, 84, 72, 0.14)';
+  ctx.lineWidth = 1.4;
+  ctx.strokeRect(padX, padY, W - padX * 2, H - padY * 2);
+
+  return {
+    floorMap: toTexture(canvas),
+    floorRoughnessMap: toTexture(rCanvas, THREE.NoColorSpace),
+  };
+}
+
+function createBouncyBallTextures(): {
+  maps: THREE.CanvasTexture[];
+  bumpMap: THREE.CanvasTexture;
+} {
+  const W = 512;
+  const H = 256;
+  const schemes = [
+    ['#ff3377', '#ffbe0b', '#3a86ff'],
+    ['#00d4aa', '#ff4d6d', '#ffe066'],
+    ['#8338ec', '#ff006e', '#00f5d4'],
+    ['#ff6b2b', '#4cc9f0', '#ffee32'],
+  ];
+
+  const maps: THREE.CanvasTexture[] = [];
+  for (const [c1, c2, c3] of schemes) {
+    const [canvas, ctx] = makeCanvas(W, H);
+    ctx.fillStyle = c1;
+    ctx.fillRect(0, 0, W, H);
+
+    // Classic psychedelic rubber superball cosmic swirls
+    for (let band = 0; band < 4; band++) {
+      const phase = (band / 4) * Math.PI * 2;
+      ctx.strokeStyle = band % 2 === 0 ? c2 : c3;
+      ctx.lineWidth = 28;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 6) {
+        const u = (x / W) * Math.PI * 2;
+        const y = H * 0.5 + Math.sin(u * 2 + phase) * (H * 0.28);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // Subtle cosmic sparkles trapped inside rubber
+    const rng = seededRand(812 + bandHash(c1));
+    for (let s = 0; s < 35; s++) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.fillRect(rng() * W, rng() * H, 2.5, 2.5);
+    }
+    maps.push(toTexture(canvas));
+  }
+
+  const [bCanvas, bCtx] = makeCanvas(128, 128);
+  bCtx.fillStyle = '#808080';
+  bCtx.fillRect(0, 0, 128, 128);
+  const bRng = seededRand(199);
+  for (let i = 0; i < 300; i++) {
+    bCtx.fillStyle = bRng() > 0.5 ? '#909090' : '#707070';
+    bCtx.fillRect(bRng() * 128, bRng() * 128, 2, 2);
+  }
+  return { maps, bumpMap: toTexture(bCanvas, THREE.NoColorSpace, 4) };
+}
+
+function bandHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+function createPaperTextures(): {
+  maps: THREE.CanvasTexture[];
+  bumpMap: THREE.CanvasTexture;
+} {
+  const S = 256;
+  const maps: THREE.CanvasTexture[] = [];
+
+  // Variant 0: Lined school notebook sheet
+  {
+    const [canvas, ctx] = makeCanvas(S, S);
+    ctx.fillStyle = '#f5f1e6';
+    ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = 'rgba(92, 146, 214, 0.42)';
+    ctx.lineWidth = 1.5;
+    for (let y = 18; y < S; y += 22) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(S, y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(218, 92, 92, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(S * 0.22, 0);
+    ctx.lineTo(S * 0.22, S);
+    ctx.stroke();
+    maps.push(toTexture(canvas));
+  }
+
+  // Variant 1: Recycled brown kraft paper
+  {
+    const [canvas, ctx] = makeCanvas(S, S);
+    ctx.fillStyle = '#c8a679';
+    ctx.fillRect(0, 0, S, S);
+    const rng = seededRand(301);
+    for (let i = 0; i < 650; i++) {
+      ctx.fillStyle = rng() > 0.5 ? 'rgba(92, 62, 32, 0.14)' : 'rgba(248, 232, 204, 0.16)';
+      ctx.fillRect(rng() * S, rng() * S, 2 + rng() * 3, 1.5);
+    }
+    maps.push(toTexture(canvas));
+  }
+
+  // Variant 2: Engineering graph paper
+  {
+    const [canvas, ctx] = makeCanvas(S, S);
+    ctx.fillStyle = '#eef4ee';
+    ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = 'rgba(84, 152, 128, 0.34)';
+    ctx.lineWidth = 1;
+    for (let p = 0; p < S; p += 16) {
+      ctx.beginPath();
+      ctx.moveTo(p, 0);
+      ctx.lineTo(p, S);
+      ctx.moveTo(0, p);
+      ctx.lineTo(S, p);
+      ctx.stroke();
+    }
+    maps.push(toTexture(canvas));
+  }
+
+  // Fine paper fiber bump map
+  const [bCanvas, bCtx] = makeCanvas(S, S);
+  bCtx.fillStyle = '#808080';
+  bCtx.fillRect(0, 0, S, S);
+  const rngB = seededRand(402);
+  for (let i = 0; i < 400; i++) {
+    const x = rngB() * S;
+    const y = rngB() * S;
+    bCtx.strokeStyle = rngB() > 0.5 ? '#a2a2a2' : '#5e5e5e';
+    bCtx.lineWidth = 1.2;
+    bCtx.beginPath();
+    bCtx.moveTo(x, y);
+    bCtx.lineTo(x + (rngB() - 0.5) * 26, y + (rngB() - 0.5) * 26);
+    bCtx.stroke();
+  }
+
+  return { maps, bumpMap: toTexture(bCanvas, THREE.NoColorSpace, 4) };
+}
+
+function createWoodTextures(): {
+  maps: THREE.CanvasTexture[];
+  bumpMap: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+} {
+  const W = 512;
+  const H = 256;
+  const species = [
+    { base: '#6b4226', ring: '#422512', hi: '#8c5a37', seed: 111 }, // Walnut
+    { base: '#c9935b', ring: '#9c6834', hi: '#dfb27d', seed: 222 }, // Maple
+    { base: '#9e4c2d', ring: '#6e2e18', hi: '#bd6846', seed: 333 }, // Cherry
+  ];
+
+  const maps: THREE.CanvasTexture[] = [];
+  const [bCanvas, bCtx] = makeCanvas(W, H);
+  const [rCanvas, rCtx] = makeCanvas(W, H);
+  bCtx.fillStyle = '#808080';
+  bCtx.fillRect(0, 0, W, H);
+  rCtx.fillStyle = '#929292';
+  rCtx.fillRect(0, 0, W, H);
+
+  for (let idx = 0; idx < species.length; idx++) {
+    const sp = species[idx];
+    const [canvas, ctx] = makeCanvas(W, H);
+    ctx.fillStyle = sp.base;
+    ctx.fillRect(0, 0, W, H);
+
+    const rng = seededRand(sp.seed);
+    // Natural cathedral & lathed hardwood growth rings
+    for (let y = 0; y < H; y += 3) {
+      const wave = Math.sin((y / H) * Math.PI * 16) * 0.5 + Math.cos((y / H) * Math.PI * 5) * 0.5;
+      ctx.strokeStyle = wave > 0.2 ? sp.ring : sp.hi;
+      ctx.globalAlpha = 0.25 + rng() * 0.25;
+      ctx.lineWidth = 1.6 + rng() * 2.2;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 16) {
+        const yy = y + Math.sin((x / W) * Math.PI * 4 + idx) * 9;
+        if (x === 0) ctx.moveTo(x, yy);
+        else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+
+      if (idx === 0) {
+        bCtx.strokeStyle = wave > 0 ? '#686868' : '#9c9c9c';
+        bCtx.lineWidth = 1.5;
+        bCtx.beginPath();
+        for (let x = 0; x <= W; x += 16) {
+          const yy = y + Math.sin((x / W) * Math.PI * 4) * 9;
+          if (x === 0) bCtx.moveTo(x, yy);
+          else bCtx.lineTo(x, yy);
+        }
+        bCtx.stroke();
+
+        rCtx.strokeStyle = wave > 0 ? '#787878' : '#b2b2b2';
+        rCtx.lineWidth = 1.8;
+        rCtx.beginPath();
+        for (let x = 0; x <= W; x += 16) {
+          const yy = y + Math.sin((x / W) * Math.PI * 4) * 9;
+          if (x === 0) rCtx.moveTo(x, yy);
+          else rCtx.lineTo(x, yy);
+        }
+        rCtx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    maps.push(toTexture(canvas));
+  }
+
+  return {
+    maps,
+    bumpMap: toTexture(bCanvas, THREE.NoColorSpace, 4),
+    roughnessMap: toTexture(rCanvas, THREE.NoColorSpace, 4),
+  };
+}
+
+function createStoneTextures(): {
+  maps: THREE.CanvasTexture[];
+  bumpMap: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+} {
+  const W = 512;
+  const H = 256;
+  const stones = [
+    { base: '#8c9096', specks: ['#4f5359', '#b8bdc4', '#2c3036', '#e0e3e8'], seed: 501 }, // Granite
+    { base: '#4a4f56', specks: ['#2b2e33', '#6c727a', '#1c1e22', '#899099'], seed: 602 }, // Basalt
+    { base: '#bfa88a', specks: ['#8f795e', '#d9c4a8', '#6b5943', '#ebd9c0'], seed: 703 }, // Sandstone
+  ];
+
+  const maps: THREE.CanvasTexture[] = [];
+  const [bCanvas, bCtx] = makeCanvas(W, H);
+  const [rCanvas, rCtx] = makeCanvas(W, H);
+  bCtx.fillStyle = '#808080';
+  bCtx.fillRect(0, 0, W, H);
+  rCtx.fillStyle = '#d2d2d2';
+  rCtx.fillRect(0, 0, W, H);
+
+  for (let idx = 0; idx < stones.length; idx++) {
+    const st = stones[idx];
+    const [canvas, ctx] = makeCanvas(W, H);
+    ctx.fillStyle = st.base;
+    ctx.fillRect(0, 0, W, H);
+
+    const rng = seededRand(st.seed);
+    // Natural mineral mottling & crystalline flecks
+    for (let i = 0; i < 55; i++) {
+      const gx = rng() * W;
+      const gy = rng() * H;
+      const rad = 16 + rng() * 32;
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, rad);
+      g.addColorStop(0, rng() > 0.5 ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.16)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - rad, gy - rad, rad * 2, rad * 2);
+    }
+
+    for (let i = 0; i < 1600; i++) {
+      const x = rng() * W;
+      const y = rng() * H;
+      const sz = 1.2 + rng() * 3.4;
+      ctx.fillStyle = st.specks[Math.floor(rng() * st.specks.length)];
+      ctx.beginPath();
+      ctx.arc(x, y, sz * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (idx === 0 && i % 2 === 0) {
+        bCtx.fillStyle = rng() > 0.5 ? '#aeaeae' : '#4a4a4a';
+        bCtx.fillRect(x, y, sz, sz);
+        rCtx.fillStyle = rng() > 0.85 ? '#787878' : '#dcdcdc';
+        rCtx.fillRect(x, y, sz, sz);
+      }
+    }
+    maps.push(toTexture(canvas));
+  }
+
+  return {
+    maps,
+    bumpMap: toTexture(bCanvas, THREE.NoColorSpace, 4),
+    roughnessMap: toTexture(rCanvas, THREE.NoColorSpace, 4),
+  };
+}
+
 export class TextureBank {
   private readonly floorCache = new Map<string, FloorTextureSet>();
   private readonly itemCache = new Map<ThemeId, ItemTextureSet>();
@@ -2106,6 +2580,45 @@ export class TextureBank {
         };
         break;
       }
+      case 'bouncy': {
+        const bb = createBouncyBallTextures();
+        items = { itemMaps: bb.maps, itemBumpMap: bb.bumpMap };
+        break;
+      }
+      case 'paper': {
+        const pa = createPaperTextures();
+        items = { itemMaps: pa.maps, itemBumpMap: pa.bumpMap };
+        break;
+      }
+      case 'wood': {
+        const wo = createWoodTextures();
+        items = {
+          itemMaps: wo.maps,
+          itemBumpMap: wo.bumpMap,
+          itemRoughnessMap: wo.roughnessMap,
+        };
+        break;
+      }
+      case 'stone': {
+        const st = createStoneTextures();
+        items = {
+          itemMaps: st.maps,
+          itemBumpMap: st.bumpMap,
+          itemRoughnessMap: st.roughnessMap,
+        };
+        break;
+      }
+      case 'trio': {
+        const pa = createPaperTextures();
+        const wo = createWoodTextures();
+        const st = createStoneTextures();
+        items = {
+          itemMaps: [pa.maps[0], wo.maps[0], st.maps[0]],
+          itemBumpMaps: [pa.bumpMap, wo.bumpMap, st.bumpMap],
+          itemRoughnessMaps: [wo.roughnessMap, st.roughnessMap],
+        };
+        break;
+      }
     }
     this.itemCache.set(id, items);
     return items;
@@ -2168,9 +2681,24 @@ export class TextureBank {
       case 'porcelain':
         floor = { floorMap: createPorcelainFloorTexture(9 / 19.5) };
         break;
+      case 'bouncy':
+        floor = { floorMap: createBouncyCourtFloorTexture(Number(bucket)) };
+        break;
+      case 'paper':
+        floor = { floorMap: createCuttingMatFloorTexture(Number(bucket)) };
+        break;
+      case 'wood':
+        floor = createWoodTrayFloorTextures(Number(bucket));
+        break;
+      case 'stone':
+        floor = createStoneCourtyardFloorTextures(Number(bucket));
+        break;
+      case 'trio':
+        floor = createTrioLabFloorTextures(Number(bucket));
+        break;
     }
 
-    if (this.floorCache.size >= 14) {
+    if (this.floorCache.size >= 18) {
       const oldestKey = this.floorCache.keys().next().value;
       if (oldestKey) {
         const old = this.floorCache.get(oldestKey);

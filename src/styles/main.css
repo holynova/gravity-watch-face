@@ -141,8 +141,9 @@ body {
   z-index: 7;
   display: none;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 5px;
+  max-width: calc(100vw - 12px);
+  padding: 5px 7px;
   border-radius: 999px;
   background: rgba(14, 16, 22, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -155,13 +156,42 @@ body {
   opacity: 0.42;
 }
 
+.mobile-step-btn {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.11);
+  color: rgba(255, 255, 255, 0.88);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.mobile-step-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.mobile-step-btn:active {
+  transform: scale(0.92);
+}
+
+.mobile-step-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
 .mobile-swatch-bar {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
-  max-width: min(260px, calc(100vw - 156px));
+  max-width: min(210px, calc(100vw - 208px));
   padding: 2px 6px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -175,21 +205,32 @@ body {
 
 .mobile-swatch {
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.22);
-  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: transform 150ms ease, border-color 150ms ease;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.mobile-swatch svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .mobile-swatch.is-active {
-  transform: scale(1.14);
+  transform: scale(1.12);
   border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.26);
   box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.72),
-    0 0 12px rgba(255, 255, 255, 0.55);
+    0 0 0 2px rgba(0, 0, 0, 0.65),
+    0 0 12px rgba(255, 255, 255, 0.52);
 }
 
 .mobile-icon-btn {
@@ -319,11 +360,97 @@ body {
   cursor: pointer;
 }
 
+.scene-toast {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(14, 16, 22, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease, transform 220ms ease;
+  white-space: nowrap;
+}
+
+.scene-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.scene-toast svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.scene-toast-count {
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.section-subtitle {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.theme-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.stepper-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.stepper-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.theme-counter {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.65);
+  min-width: 34px;
+  text-align: center;
+}
+
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 5px;
-  max-height: 264px;
+  max-height: 274px;
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-width: thin;
@@ -343,12 +470,12 @@ body {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 9px;
+  padding: 6px 8px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
@@ -365,11 +492,22 @@ body {
 }
 
 .theme-swatch-dot {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 2px;
+}
+
+.theme-swatch-dot svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* 360° Gyro Tilt Pad */

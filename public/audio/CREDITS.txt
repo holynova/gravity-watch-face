@@ -1,0 +1,12 @@
+CC0 1.0 Universal (Public Domain) Sound Effects Bundled in gravity-watch-face
+
+1. Kenney — Impact Sounds (CC0 1.0)
+   Source: https://kenney.nl/assets/impact-sounds (mirror: Boyquotes/kenney-impact-sounds-for-godot)
+   Files trimmed/converted: wood-0, wood-1, stone-0, stone-1, stone-2, ceramic-1, ceramic-2,
+   glass-0, glass-1, break-ice, break-ceramic, crack, metal-1, metal-2, gold-0, gold-1,
+   dice-2, soft-0, soft-1, ball-0, ball-1, ball-2.
+
+2. Meta Open Sound / Oculus Audio Pack (CC0 1.0)
+   Source: https://github.com/facebookincubator/Meta-open-sound (corpora/oculus-audio-pack)
+   Files trimmed/converted: paper-0, paper-1, wood-2, ceramic-0, glass-2, break-glass,
+   metal-0, dice-0, dice-1, bouncy-0, bouncy-1, bouncy-2, jelly-0, jelly-1, jelly-2, pop-0.

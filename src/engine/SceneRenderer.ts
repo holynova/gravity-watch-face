@@ -8,6 +8,7 @@ import {
   createBalloonParts,
   createBrilliantDiamondGeometry,
   createCasinoDiceGeometry,
+  createCrumpledPaperGeometry,
   createEdisonBulbParts,
   createGoldIngotGeometry,
   createIceCubeGeometry,
@@ -277,6 +278,22 @@ export class SceneRenderer {
       floorRoughness = 0.94;
       floorMetalness = 0.0;
       floorEnv = 0.06;
+    } else if (id === 'bouncy') {
+      floorRoughness = 0.44;
+      floorMetalness = 0.08;
+      floorEnv = 0.22;
+    } else if (id === 'paper') {
+      floorRoughness = 0.88;
+      floorMetalness = 0.0;
+      floorEnv = 0.06;
+    } else if (id === 'wood') {
+      floorRoughness = 0.72;
+      floorMetalness = 0.02;
+      floorEnv = 0.14;
+    } else if (id === 'stone' || id === 'trio') {
+      floorRoughness = 0.9;
+      floorMetalness = 0.02;
+      floorEnv = 0.08;
     }
 
     const floorMat = isVault
@@ -485,6 +502,58 @@ export class SceneRenderer {
           patchItemShadowShader(cMat, this.shadowUniforms, 'item-porcelain-cracked');
           this.crackedMats.push(cMat);
         }
+      } else if (theme.id === 'bouncy') {
+        const maps = texSet.itemMaps ?? [];
+        for (let i = 0; i < Math.max(1, maps.length); i++) {
+          const mat = this.track(
+            new THREE.MeshPhysicalMaterial({
+              map: maps[i],
+              bumpMap: texSet.itemBumpMap,
+              bumpScale: 0.008,
+              roughness: 0.16,
+              metalness: 0.02,
+              clearcoat: 0.94,
+              clearcoatRoughness: 0.06,
+              envMapIntensity: 1.28,
+            }),
+          );
+          patchItemShadowShader(mat, this.shadowUniforms, 'item-bouncy');
+          this.intactMats.push(mat);
+        }
+      } else if (theme.id === 'wood') {
+        const maps = texSet.itemMaps ?? [];
+        for (let i = 0; i < Math.max(1, maps.length); i++) {
+          const mat = this.track(
+            new THREE.MeshStandardMaterial({
+              map: maps[i],
+              bumpMap: texSet.itemBumpMap,
+              bumpScale: 0.016,
+              roughnessMap: texSet.itemRoughnessMap,
+              roughness: 0.6,
+              metalness: 0.02,
+              envMapIntensity: 0.28,
+            }),
+          );
+          patchItemShadowShader(mat, this.shadowUniforms, 'item-wood');
+          this.intactMats.push(mat);
+        }
+      } else if (theme.id === 'stone') {
+        const maps = texSet.itemMaps ?? [];
+        for (let i = 0; i < Math.max(1, maps.length); i++) {
+          const mat = this.track(
+            new THREE.MeshStandardMaterial({
+              map: maps[i],
+              bumpMap: texSet.itemBumpMap,
+              bumpScale: 0.024,
+              roughnessMap: texSet.itemRoughnessMap,
+              roughness: 0.9,
+              metalness: 0.02,
+              envMapIntensity: 0.14,
+            }),
+          );
+          patchItemShadowShader(mat, this.shadowUniforms, 'item-stone');
+          this.intactMats.push(mat);
+        }
       }
     } else if (theme.shapeKind === 'diamond') {
       this.activeGeos.main = this.track(createBrilliantDiamondGeometry(baseSize));
@@ -648,6 +717,69 @@ export class SceneRenderer {
       );
       patchItemShadowShader(mat, this.shadowUniforms, 'item-ice');
       this.intactMats = [mat];
+    } else if (theme.shapeKind === 'paper') {
+      const maps = texSet.itemMaps ?? [];
+      for (let i = 0; i < 3; i++) {
+        this.activeGeos[`paper${i}`] = this.track(createCrumpledPaperGeometry(baseSize, i));
+        const mat = this.track(
+          new THREE.MeshStandardMaterial({
+            map: maps[i % Math.max(1, maps.length)],
+            bumpMap: texSet.itemBumpMap,
+            bumpScale: 0.02,
+            roughness: 0.96,
+            metalness: 0.0,
+            envMapIntensity: 0.08,
+          }),
+        );
+        patchItemShadowShader(mat, this.shadowUniforms, 'item-paper');
+        this.intactMats.push(mat);
+      }
+    } else if (theme.shapeKind === 'trio') {
+      const maps = texSet.itemMaps ?? [];
+      const bMaps = texSet.itemBumpMaps ?? [];
+      const rMaps = texSet.itemRoughnessMaps ?? [];
+      this.activeGeos.paper0 = this.track(createCrumpledPaperGeometry(baseSize, 0));
+      this.activeGeos.sphere = this.track(new THREE.SphereGeometry(baseSize, 32, 24));
+
+      const paperMat = this.track(
+        new THREE.MeshStandardMaterial({
+          map: maps[0],
+          bumpMap: bMaps[0],
+          bumpScale: 0.02,
+          roughness: 0.96,
+          metalness: 0.0,
+          envMapIntensity: 0.08,
+        }),
+      );
+      patchItemShadowShader(paperMat, this.shadowUniforms, 'item-trio-paper');
+
+      const woodMat = this.track(
+        new THREE.MeshStandardMaterial({
+          map: maps[1],
+          bumpMap: bMaps[1],
+          bumpScale: 0.016,
+          roughnessMap: rMaps[0],
+          roughness: 0.6,
+          metalness: 0.02,
+          envMapIntensity: 0.28,
+        }),
+      );
+      patchItemShadowShader(woodMat, this.shadowUniforms, 'item-trio-wood');
+
+      const stoneMat = this.track(
+        new THREE.MeshStandardMaterial({
+          map: maps[2],
+          bumpMap: bMaps[2],
+          bumpScale: 0.024,
+          roughnessMap: rMaps[1],
+          roughness: 0.9,
+          metalness: 0.02,
+          envMapIntensity: 0.14,
+        }),
+      );
+      patchItemShadowShader(stoneMat, this.shadowUniforms, 'item-trio-stone');
+
+      this.intactMats = [paperMat, woodMat, stoneMat];
     }
 
     // Build shared shard/confetti geometry & materials when fragile
@@ -774,6 +906,29 @@ export class SceneRenderer {
       group.add(bodyMesh, tailMesh);
       group.scale.setScalar(meta.scale);
       return { meta, object: group, swappableMesh: bodyMesh };
+    }
+
+    if (theme.shapeKind === 'paper') {
+      const idx = meta.variantIndex % 3;
+      const geo = this.activeGeos[`paper${idx}`];
+      const mat = this.intactMats[idx] as ItemMat;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.scale.setScalar(meta.scale);
+      mesh.castShadow = cast;
+      mesh.receiveShadow = cast;
+      return { meta, object: mesh, swappableMesh: mesh };
+    }
+
+    if (theme.shapeKind === 'trio') {
+      const tag = meta.materialTag ?? 'paper';
+      const isPaper = tag === 'paper';
+      const geo = isPaper ? this.activeGeos.paper0 : this.activeGeos.sphere;
+      const matIdx = tag === 'paper' ? 0 : tag === 'wood' ? 1 : 2;
+      const mesh = new THREE.Mesh(geo, this.intactMats[matIdx] as ItemMat);
+      mesh.scale.setScalar(meta.scale);
+      mesh.castShadow = cast;
+      mesh.receiveShadow = cast;
+      return { meta, object: mesh, swappableMesh: mesh };
     }
 
     const mat =

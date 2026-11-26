@@ -1,6 +1,6 @@
 import * as CANNON from 'cannon-es';
 import { CollisionHapticEvent, MotionMetrics } from '../audio/HapticsEngine';
-import { FragileSpec, ShardKind, ThemeId, ThemeSpec } from '../themes/types';
+import { FragileSpec, MaterialTag, ShardKind, ThemeId, ThemeSpec } from '../themes/types';
 
 export type BodyRole = 'intact' | 'shard' | 'cap';
 
@@ -9,6 +9,7 @@ export interface BodyMeta {
   index: number;
   variantIndex: number;
   role: BodyRole;
+  materialTag?: MaterialTag;
   shardKind?: ShardKind;
   scale: number;
   kind: ThemeSpec['shapeKind'];
@@ -211,6 +212,7 @@ export class PhysicsWorld {
           speed: impact,
           kind: this.wallSet.has(evt.body) ? 'wall' : 'body',
           mass: body.mass,
+          materialTag: meta.materialTag,
         });
       }
     });
@@ -239,6 +241,31 @@ export class PhysicsWorld {
   ): BodyMeta {
     let scale = 1;
     let massMul = 1;
+    let materialTag: MaterialTag | undefined;
+    let bodyMass = theme.mass;
+    let linDamp = theme.linearDamping;
+    let angDamp = theme.angularDamping;
+
+    if (theme.id === 'paper' || theme.id === 'wood' || theme.id === 'stone') {
+      materialTag = theme.id;
+    } else if (theme.id === 'trio') {
+      const order: MaterialTag[] = ['paper', 'wood', 'stone'];
+      materialTag = order[index % 3];
+      if (materialTag === 'paper') {
+        bodyMass = 0.14;
+        linDamp = 0.14;
+        angDamp = 0.18;
+      } else if (materialTag === 'wood') {
+        bodyMass = 0.78;
+        linDamp = 0.022;
+        angDamp = 0.045;
+      } else {
+        bodyMass = 3.4;
+        linDamp = 0.018;
+        angDamp = 0.05;
+      }
+    }
+
     if (theme.id === 'bearings') {
       const isLarge = index % 4 === 0;
       scale = isLarge ? 1.26 : 0.68;
@@ -255,10 +282,10 @@ export class PhysicsWorld {
     }
 
     const body = new CANNON.Body({
-      mass: theme.mass * massMul,
+      mass: bodyMass * massMul,
       material: this.defaultMat,
-      linearDamping: theme.linearDamping,
-      angularDamping: theme.angularDamping,
+      linearDamping: linDamp,
+      angularDamping: angDamp,
       position: new CANNON.Vec3(posX, posY, posZ),
     });
 
@@ -321,6 +348,7 @@ export class PhysicsWorld {
       index,
       variantIndex: index % variantCount,
       role: 'intact',
+      materialTag,
       scale,
       kind: theme.shapeKind,
       halfExtents,

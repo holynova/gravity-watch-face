@@ -26,8 +26,32 @@
           <span>开启重力感应</span>
         </button>
 
+        <div class="scene-toast" id="sceneToast" aria-live="polite" hidden></div>
+
         <div class="mobile-dock" id="mobileDock">
+          <button
+            class="mobile-step-btn"
+            id="mobilePrevBtn"
+            type="button"
+            aria-label="上一个场景"
+            title="上一个场景"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
           <div class="mobile-swatch-bar" id="mobileSwatches" role="tablist" aria-label="切换场景主题"></div>
+          <button
+            class="mobile-step-btn"
+            id="mobileNextBtn"
+            type="button"
+            aria-label="下一个场景"
+            title="下一个场景"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
           <button class="mobile-icon-btn" id="mobileAudioBtn" type="button" aria-label="切换碰撞音效" title="碰撞音效">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M11 5L6 9H2v6h4l5 4V5z" />
@@ -86,8 +110,12 @@
 
         <section class="rail-section">
           <div class="section-head">
-            <span>场景主题</span>
-            <span class="section-hint" id="themeSubtitle">Diamonds Vault</span>
+            <span>场景主题 <span class="section-subtitle" id="themeSubtitle">Diamonds Vault</span></span>
+            <div class="theme-stepper">
+              <button class="stepper-btn" id="desktopPrevBtn" type="button" aria-label="上一个场景" title="上一个场景">‹</button>
+              <span class="theme-counter" id="themeCounter">1/18</span>
+              <button class="stepper-btn" id="desktopNextBtn" type="button" aria-label="下一个场景" title="下一个场景">›</button>
+            </div>
           </div>
           <div class="theme-grid" id="desktopThemes" role="tablist" aria-label="桌面主题切换"></div>
         </section>
@@ -123,7 +151,7 @@
         <footer class="telemetry-bar" id="telemetryBar">
           <span>G: <strong id="telemetryText">0.0, -24.0, -7.5</strong></span>
           <span class="telemetry-meta">
-            <span class="app-version">v1.1.0</span>
+            <span class="app-version">v1.2.0</span>
             <span aria-hidden="true">·</span>
             <a
               class="repo-link"

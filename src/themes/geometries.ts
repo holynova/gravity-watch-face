@@ -466,3 +466,44 @@ export function createShardGeometry(
   geometry.computeBoundingSphere();
   return geometry;
 }
+
+/**
+ * Builds a watertight crumpled-paper polyhedron with crisp flat origami crease facets.
+ */
+export function createCrumpledPaperGeometry(radius: number, variant = 0): THREE.BufferGeometry {
+  const base = new THREE.IcosahedronGeometry(radius * 0.96, 2);
+  const pos = base.attributes.position;
+  const cache = new Map<string, number>();
+  const seed = 19.3 + variant * 47.7;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const key = `${Math.round(x * 1e4)}_${Math.round(y * 1e4)}_${Math.round(z * 1e4)}`;
+
+    let radialMul = cache.get(key);
+    if (radialMul === undefined) {
+      const len = Math.hypot(x, y, z) || 1;
+      const nx = x / len;
+      const ny = y / len;
+      const nz = z / len;
+      const foldA = Math.abs(Math.sin(nx * 4.3 + ny * 3.1 + seed));
+      const foldB = Math.abs(Math.cos(ny * 4.7 - nz * 3.9 + seed * 1.37));
+      const foldC = Math.sin(nx * 6.4 - nz * 5.2 + seed * 0.71) * 0.5 + 0.5;
+      radialMul = 0.77 + foldA * 0.21 + foldB * 0.14 + foldC * 0.08;
+      cache.set(key, radialMul);
+    }
+
+    const len = Math.hypot(x, y, z) || 1;
+    const targetR = radius * radialMul;
+    pos.setXYZ(i, (x / len) * targetR, (y / len) * targetR, (z / len) * targetR);
+  }
+
+  pos.needsUpdate = true;
+  const faceted = base.toNonIndexed();
+  base.dispose();
+  faceted.computeVertexNormals();
+  faceted.computeBoundingSphere();
+  return faceted;
+}

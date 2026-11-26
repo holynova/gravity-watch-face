@@ -2,11 +2,11 @@
 
 [简体中文](README.md) · [Open the site](https://gravity-watch-face.xiaosang.cc/) · [GitHub](https://github.com/holynova/gravity-watch-face)
 
-Tilt your phone or drag the desktop gimbal to tumble 13 real-time 3D PBR physics scenes: Tennis, Diamonds, Basketball, Gold Bars, Soccer, Edison Bulbs, Party Balloons, Casino Dice, Glass Marbles, Ice Cubes, Jelly Balls, Chrome Bearings, and Porcelain Orbs.
+Tilt your phone or drag the desktop gimbal to tumble 18 real-time 3D PBR physics scenes: alongside courts, gold bars, bulbs, dice, marbles, ice, and porcelain, explore Super Bouncy Balls, Crumpled Paper, Wood Spheres, Stone Spheres, and a mixed Paper · Wood · Stone lab tray.
 
 <img src="assets/screenshot.png" width="360" alt="Gravity playground on a phone">
 
-Tap balloons to pop confetti, double-tap or slam glass marbles, bulbs, ice cubes, and porcelain orbs for crackles and shatters, and enjoy borderless full-bleed grounds with analytical soft shadows and material-specific haptics.
+Features open-source CC0 recorded collision audio (Kenney Impact Sounds & Meta Open Sound), per-material haptics, unmistakable vector pictogram swatches, and one-tap Previous / Next scene controls.
 
 ## Run locally
 

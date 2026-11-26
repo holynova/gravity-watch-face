@@ -1,9 +1,10 @@
-import { ShardKind, ThemeId } from '../themes/types';
+import { MaterialTag, ShardKind, ThemeId } from '../themes/types';
 
 export interface CollisionHapticEvent {
   speed: number;
   kind: 'wall' | 'body';
   mass: number;
+  materialTag?: MaterialTag;
 }
 
 export interface MotionMetrics {
@@ -237,6 +238,82 @@ const HAPTIC_PROFILES: Record<ThemeId, MaterialHapticProfile> = {
     themeSwitch: [6, 14, 5],
     recoilGain: 0.95,
   },
+  bouncy: {
+    heavyThreshold: 5.5,
+    wallHeavy: [9, 14, 7],
+    wallLightBase: 4.5,
+    wallLightGain: 2.0,
+    bodyBase: 3.5,
+    bodyGain: 0.65,
+    bodyMax: 9,
+    rollIntervalMax: 115,
+    rollIntervalMin: 50,
+    rollPulse: 4.5,
+    nudge: 6.5,
+    themeSwitch: [8, 16, 8],
+    recoilGain: 1.15,
+  },
+  paper: {
+    heavyThreshold: 8.5,
+    wallHeavy: [3, 10, 2],
+    wallLightBase: 2,
+    wallLightGain: 0.8,
+    bodyBase: 2,
+    bodyGain: 0.25,
+    bodyMax: 4,
+    rollIntervalMax: 170,
+    rollIntervalMin: 100,
+    rollPulse: 2,
+    rollDisabled: true,
+    nudge: 3,
+    themeSwitch: [4, 10, 3],
+    recoilGain: 0.3,
+  },
+  wood: {
+    heavyThreshold: 5.8,
+    wallHeavy: [8, 16, 5],
+    wallLightBase: 4,
+    wallLightGain: 1.8,
+    bodyBase: 3,
+    bodyGain: 0.55,
+    bodyMax: 7,
+    rollIntervalMax: 130,
+    rollIntervalMin: 64,
+    rollPulse: 3.5,
+    nudge: 5.5,
+    themeSwitch: [7, 16, 6],
+    recoilGain: 0.92,
+  },
+  stone: {
+    heavyThreshold: 4.9,
+    wallHeavy: [18, 22, 11],
+    wallLightBase: 7,
+    wallLightGain: 2.7,
+    bodyBase: 4.5,
+    bodyGain: 0.85,
+    bodyMax: 11,
+    rollIntervalMax: 145,
+    rollIntervalMin: 72,
+    rollPulse: 5.5,
+    nudge: 8.5,
+    themeSwitch: [15, 22, 10],
+    recoilGain: 1.4,
+  },
+  trio: {
+    heavyThreshold: 5.6,
+    wallHeavy: [11, 18, 7],
+    wallLightBase: 4.5,
+    wallLightGain: 1.9,
+    bodyBase: 3.2,
+    bodyGain: 0.6,
+    bodyMax: 9,
+    rollIntervalMax: 132,
+    rollIntervalMin: 64,
+    rollPulse: 4,
+    nudge: 6,
+    themeSwitch: [9, 18, 7],
+    recoilGain: 1.05,
+  },
 };
 
 export class HapticsEngine {
@@ -337,8 +414,8 @@ export class HapticsEngine {
 
   playCollision(evt: CollisionHapticEvent, theme: ThemeId): void {
     const now = performance.now();
-    const { speed, kind, mass } = evt;
-    const prof = HAPTIC_PROFILES[theme];
+    const { speed, kind, mass, materialTag } = evt;
+    const prof = HAPTIC_PROFILES[materialTag ?? theme];
 
     if (kind === 'wall') {
       if (speed < 1.35 || now - this.lastWallMs < 62) return;

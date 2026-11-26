@@ -4,6 +4,7 @@ import { SoundEngine } from './audio/SoundEngine';
 import { PhysicsWorld } from './engine/PhysicsWorld';
 import { SceneRenderer } from './engine/SceneRenderer';
 import { MotionController, MotionSnapshot } from './sensors/MotionController';
+import { getThemeIconSvg } from './themes/icons';
 import { isThemeId, THEME_LIST, THEMES_BY_ID, ThemeId } from './themes/types';
 
 function resolveInitialTheme(): ThemeId {
@@ -17,13 +18,19 @@ const appShell = document.getElementById('appShell') as HTMLElement;
 const screenStage = document.getElementById('screenStage') as HTMLElement;
 const canvas = document.getElementById('physicsCanvas') as HTMLCanvasElement;
 const sensorCta = document.getElementById('sensorCta') as HTMLButtonElement;
+const sceneToast = document.getElementById('sceneToast') as HTMLElement;
 const mobileDock = document.getElementById('mobileDock') as HTMLElement;
+const mobilePrevBtn = document.getElementById('mobilePrevBtn') as HTMLButtonElement;
+const mobileNextBtn = document.getElementById('mobileNextBtn') as HTMLButtonElement;
 const mobileSwatches = document.getElementById('mobileSwatches') as HTMLElement;
 const mobileAudioBtn = document.getElementById('mobileAudioBtn') as HTMLButtonElement;
 const mobileHapticsBtn = document.getElementById('mobileHapticsBtn') as HTMLButtonElement;
 const mobileFullscreenBtn = document.getElementById('mobileFullscreenBtn') as HTMLButtonElement;
 
 const desktopThemes = document.getElementById('desktopThemes') as HTMLElement;
+const desktopPrevBtn = document.getElementById('desktopPrevBtn') as HTMLButtonElement;
+const desktopNextBtn = document.getElementById('desktopNextBtn') as HTMLButtonElement;
+const themeCounter = document.getElementById('themeCounter') as HTMLElement;
 const themeSubtitle = document.getElementById('themeSubtitle') as HTMLElement;
 const modeBadge = document.getElementById('modeBadge') as HTMLElement;
 const gyroPad = document.getElementById('gyroPad') as HTMLElement;
@@ -46,7 +53,7 @@ const renderer = new SceneRenderer(canvas, THEMES_BY_ID[activeThemeId]);
 const physics = new PhysicsWorld(
   renderer.getBounds(),
   (evt) => {
-    sound.playImpact(evt.speed);
+    sound.playImpact(evt.speed, evt.materialTag);
     haptics.playCollision(evt, activeThemeId);
   },
   () => {
@@ -81,16 +88,34 @@ function wakeMobileDock(): void {
   }, delay);
 }
 
+let toastTimer: number | null = null;
+function showSceneToast(id: ThemeId): void {
+  const idx = THEME_LIST.findIndex((t) => t.id === id);
+  const spec = THEMES_BY_ID[id];
+  sceneToast.innerHTML = `${getThemeIconSvg(id)}<span>${spec.labelZh}</span><span class="scene-toast-count">${idx + 1}/${THEME_LIST.length}</span>`;
+  sceneToast.hidden = false;
+  sceneToast.classList.add('is-visible');
+  if (toastTimer !== null) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    sceneToast.classList.remove('is-visible');
+    toastTimer = window.setTimeout(() => {
+      sceneToast.hidden = true;
+    }, 240);
+  }, 1150);
+}
+
 const desktopButtons = new Map<ThemeId, HTMLButtonElement>();
 const mobileButtons = new Map<ThemeId, HTMLButtonElement>();
 
 for (const spec of THEME_LIST) {
+  const iconSvg = getThemeIconSvg(spec.id);
+
   const dBtn = document.createElement('button');
   dBtn.type = 'button';
   dBtn.className = 'theme-btn';
   dBtn.dataset.theme = spec.id;
   dBtn.setAttribute('role', 'tab');
-  dBtn.innerHTML = `<span class="theme-swatch-dot" style="background: linear-gradient(135deg, ${spec.swatchColor}, ${spec.swatchAccent})"></span><span>${spec.labelZh}</span>`;
+  dBtn.innerHTML = `<span class="theme-swatch-dot">${iconSvg}</span><span>${spec.labelZh}</span>`;
   dBtn.addEventListener('click', () => selectTheme(spec.id, true));
   desktopThemes.appendChild(dBtn);
   desktopButtons.set(spec.id, dBtn);
@@ -100,7 +125,8 @@ for (const spec of THEME_LIST) {
   mBtn.className = 'mobile-swatch';
   mBtn.dataset.theme = spec.id;
   mBtn.setAttribute('aria-label', spec.labelZh);
-  mBtn.style.background = `linear-gradient(135deg, ${spec.swatchColor}, ${spec.swatchAccent})`;
+  mBtn.title = spec.labelZh;
+  mBtn.innerHTML = iconSvg;
   mBtn.addEventListener('click', () => {
     wakeMobileDock();
     selectTheme(spec.id, true);
@@ -109,6 +135,23 @@ for (const spec of THEME_LIST) {
   mobileButtons.set(spec.id, mBtn);
 }
 
+function stepTheme(delta: number): void {
+  const idx = THEME_LIST.findIndex((t) => t.id === activeThemeId);
+  const nextIdx = (idx + delta + THEME_LIST.length) % THEME_LIST.length;
+  selectTheme(THEME_LIST[nextIdx].id, true);
+}
+
+mobilePrevBtn.addEventListener('click', () => {
+  wakeMobileDock();
+  stepTheme(-1);
+});
+mobileNextBtn.addEventListener('click', () => {
+  wakeMobileDock();
+  stepTheme(1);
+});
+desktopPrevBtn.addEventListener('click', () => stepTheme(-1));
+desktopNextBtn.addEventListener('click', () => stepTheme(1));
+
 resetBtn.addEventListener('click', () => {
   selectTheme(activeThemeId, true);
 });
@@ -116,6 +159,7 @@ resetBtn.addEventListener('click', () => {
 function selectTheme(id: ThemeId, fromGesture = false): void {
   activeThemeId = id;
   const spec = THEMES_BY_ID[id];
+  const idx = THEME_LIST.findIndex((t) => t.id === id);
   document.documentElement.style.setProperty('--theme-floor-bg', spec.floorBaseColor);
   const themeColorMeta = document.querySelector('meta[name="theme-color"]');
   if (themeColorMeta) themeColorMeta.setAttribute('content', spec.floorBaseColor);
@@ -123,9 +167,11 @@ function selectTheme(id: ThemeId, fromGesture = false): void {
   renderer.applyTheme(spec, meta);
   sound.setTheme(id);
   themeSubtitle.textContent = spec.labelEn;
+  themeCounter.textContent = `${idx + 1}/${THEME_LIST.length}`;
 
   if (fromGesture) {
     haptics.playThemeSwitch(id);
+    showSceneToast(id);
   }
 
   for (const [k, btn] of desktopButtons) {
@@ -454,6 +500,7 @@ wakeMobileDock();
 // Expose clean diagnostic handle for verification
 (window as unknown as Record<string, unknown>).__GRAVITY_WATCH__ = {
   selectTheme: (id: ThemeId) => selectTheme(id, true),
+  stepTheme: (delta: number) => stepTheme(delta),
   getTheme: () => activeThemeId,
   resetScene: () => selectTheme(activeThemeId, true),
   setTilt: (x: number, y: number) => motion.setSimulatedTilt(x, y),
@@ -468,12 +515,17 @@ wakeMobileDock();
     themeCount: THEME_LIST.length,
     bodyCount: physics.bodies.length,
     roleCounts: physics.getRoleCounts(),
+    masses: physics.bodies.map((b, idx) => ({
+      tag: physics.meta[idx]?.materialTag ?? activeThemeId,
+      mass: Number(b.mass.toFixed(2)),
+    })),
     avgY:
       physics.bodies.length > 0
         ? physics.bodies.reduce((sum, b) => sum + b.position.y, 0) / physics.bodies.length
         : 0,
     bounds: renderer.getBounds(),
     motion: motion.getSnapshot(),
+    audio: sound.getStats(),
     haptics: haptics.getStats(),
   }),
 };

@@ -1,6 +1,6 @@
 {
   "name": "gravity-watch-face",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Mobile-first 3D physics interactive watch face powered by device motion sensors, Three.js PBR, and cannon-es.",
