@@ -34,6 +34,7 @@ const demoBtn = document.getElementById('demoBtn') as HTMLButtonElement;
 const audioBtn = document.getElementById('audioBtn') as HTMLButtonElement;
 const hapticsBtn = document.getElementById('hapticsBtn') as HTMLButtonElement;
 const fullBleedBtn = document.getElementById('fullBleedBtn') as HTMLButtonElement;
+const resetBtn = document.getElementById('resetBtn') as HTMLButtonElement;
 const exitFullBleedBtn = document.getElementById('exitFullBleedBtn') as HTMLButtonElement;
 const telemetryText = document.getElementById('telemetryText') as HTMLElement;
 
@@ -51,15 +52,33 @@ const physics = new PhysicsWorld(
   () => {
     haptics.playTouchNudge(activeThemeId, true);
   },
+  {
+    onBodyAdded: (meta) => renderer.addBodyMesh(meta),
+    onBodyRemoved: (id) => renderer.removeBodyMesh(id),
+    onBodyCracked: (meta) => renderer.markBodyCracked(meta),
+    onCrack: (themeId) => {
+      sound.playCrack();
+      haptics.playCrack(themeId);
+    },
+    onBreak: (kind) => {
+      sound.playBreak(kind);
+      haptics.playShatter(kind);
+    },
+  },
 );
 
 let dimTimer: number | null = null;
 function wakeMobileDock(): void {
   mobileDock.classList.remove('is-dimmed');
+  exitFullBleedBtn.classList.remove('is-dimmed');
   if (dimTimer !== null) window.clearTimeout(dimTimer);
+  const delay = appShell.classList.contains('is-fullbleed') ? 2600 : 3600;
   dimTimer = window.setTimeout(() => {
     mobileDock.classList.add('is-dimmed');
-  }, 3600);
+    if (appShell.classList.contains('is-fullbleed')) {
+      exitFullBleedBtn.classList.add('is-dimmed');
+    }
+  }, delay);
 }
 
 const desktopButtons = new Map<ThemeId, HTMLButtonElement>();
@@ -90,6 +109,10 @@ for (const spec of THEME_LIST) {
   mobileButtons.set(spec.id, mBtn);
 }
 
+resetBtn.addEventListener('click', () => {
+  selectTheme(activeThemeId, true);
+});
+
 function selectTheme(id: ThemeId, fromGesture = false): void {
   activeThemeId = id;
   const spec = THEMES_BY_ID[id];
@@ -114,6 +137,11 @@ function selectTheme(id: ThemeId, fromGesture = false): void {
     const active = k === id;
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-selected', String(active));
+  }
+
+  if (fromGesture) {
+    desktopButtons.get(id)?.scrollIntoView({ block: 'nearest' });
+    mobileButtons.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 }
 
@@ -237,6 +265,11 @@ function applyFullBleedState(full: boolean): void {
   fullBleedBtn.setAttribute('aria-pressed', String(full));
   mobileFullscreenBtn.setAttribute('aria-pressed', String(full));
   exitFullBleedBtn.hidden = !full;
+  if (full) {
+    wakeMobileDock();
+  } else {
+    exitFullBleedBtn.classList.remove('is-dimmed');
+  }
   requestAnimationFrame(() => syncResize());
 }
 
@@ -313,20 +346,28 @@ canvas.addEventListener('pointerdown', (e) => {
   wakeMobileDock();
   const rect = canvas.getBoundingClientRect();
   const relY = (e.clientY - rect.top) / Math.max(1, rect.height);
-  swipeStart = { x: e.clientX, y: e.clientY, inTopZone: relY < 0.28 };
+  swipeStart = { x: e.clientX, y: e.clientY, inTopZone: relY < 0.42 };
+  const wPos = renderer.screenToWorldZ0(e.clientX, e.clientY, rect);
 
   const now = performance.now();
-  if (now - lastTapMs < 280) {
-    physics.applyShakeImpulse(0.85);
-    haptics.playShake(0.85, true);
+  const isDoubleTap = now - lastTapMs < 280;
+  if (isDoubleTap) {
     lastTapMs = 0;
   } else {
     lastTapMs = now;
   }
 
+  if (activeThemeId === 'balloons') {
+    if (physics.pokeAt(wPos.x, wPos.y)) return;
+  } else if (isDoubleTap) {
+    if (!physics.pokeAt(wPos.x, wPos.y)) {
+      physics.applyShakeImpulse(0.95);
+      haptics.playShake(0.95, true);
+    }
+  }
+
   canvasDragging = true;
   canvas.setPointerCapture(e.pointerId);
-  const wPos = renderer.screenToWorldZ0(e.clientX, e.clientY, rect);
   physics.setPointerPusher(true, wPos.x, wPos.y, 0);
 });
 
@@ -341,7 +382,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (swipeStart && swipeStart.inTopZone) {
     const dx = e.clientX - swipeStart.x;
     const dy = Math.abs(e.clientY - swipeStart.y);
-    if (Math.abs(dx) > 54 && dy < 48) {
+    if (Math.abs(dx) > 56 && dy < 48) {
       const idx = THEME_LIST.findIndex((t) => t.id === activeThemeId);
       const nextIdx = (idx + (dx < 0 ? 1 : -1) + THEME_LIST.length) % THEME_LIST.length;
       selectTheme(THEME_LIST[nextIdx].id, true);
@@ -378,6 +419,31 @@ resizeObserver.observe(screenStage);
 window.visualViewport?.addEventListener('resize', () => syncResize());
 window.addEventListener('orientationchange', () => window.setTimeout(syncResize, 120));
 
+window.addEventListener('keydown', (e) => {
+  const tag = (e.target as HTMLElement | null)?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  const digit = Number(e.key);
+  if (digit >= 1 && digit <= Math.min(9, THEME_LIST.length)) {
+    selectTheme(THEME_LIST[digit - 1].id, true);
+    wakeMobileDock();
+    return;
+  }
+  if (e.key === '[' || e.key === 'ArrowLeft') {
+    const idx = THEME_LIST.findIndex((t) => t.id === activeThemeId);
+    const prevIdx = (idx - 1 + THEME_LIST.length) % THEME_LIST.length;
+    selectTheme(THEME_LIST[prevIdx].id, true);
+    wakeMobileDock();
+  } else if (e.key === ']' || e.key === 'ArrowRight') {
+    const idx = THEME_LIST.findIndex((t) => t.id === activeThemeId);
+    const nextIdx = (idx + 1) % THEME_LIST.length;
+    selectTheme(THEME_LIST[nextIdx].id, true);
+    wakeMobileDock();
+  } else if (e.key === 'r' || e.key === 'R') {
+    selectTheme(activeThemeId, true);
+    wakeMobileDock();
+  }
+});
+
 // Initialize default theme & UI
 syncResize();
 selectTheme(activeThemeId, false);
@@ -389,14 +455,23 @@ wakeMobileDock();
 (window as unknown as Record<string, unknown>).__GRAVITY_WATCH__ = {
   selectTheme: (id: ThemeId) => selectTheme(id, true),
   getTheme: () => activeThemeId,
+  resetScene: () => selectTheme(activeThemeId, true),
   setTilt: (x: number, y: number) => motion.setSimulatedTilt(x, y),
+  pokeAt: (x: number, y: number) => physics.pokeAt(x, y),
+  triggerBreakDemo: (maxCount = 2) => physics.triggerBreakDemo(maxCount),
   shake: (s = 1.1) => {
     physics.applyShakeImpulse(s);
     haptics.playShake(s, false);
   },
   getStats: () => ({
     theme: activeThemeId,
+    themeCount: THEME_LIST.length,
     bodyCount: physics.bodies.length,
+    roleCounts: physics.getRoleCounts(),
+    avgY:
+      physics.bodies.length > 0
+        ? physics.bodies.reduce((sum, b) => sum + b.position.y, 0) / physics.bodies.length
+        : 0,
     bounds: renderer.getBounds(),
     motion: motion.getSnapshot(),
     haptics: haptics.getStats(),

@@ -215,3 +215,254 @@ export function createGoldIngotGeometry(
   geometry.computeBoundingSphere();
   return geometry;
 }
+
+/**
+ * Builds pear glass bulb, ridged E27 brass screw cap, and hairpin tungsten filament
+ * centered near origin so physics center-of-mass sits inside the bulb belly.
+ */
+export function createEdisonBulbParts(radius: number): {
+  glassGeo: THREE.BufferGeometry;
+  capGeo: THREE.BufferGeometry;
+  filamentGeo: THREE.BufferGeometry;
+} {
+  // Glass pear envelope from neck (-0.62r) up to spherical dome (+1.18r)
+  const glassProfile: THREE.Vector2[] = [];
+  const neckSteps = 10;
+  for (let i = 0; i <= neckSteps; i++) {
+    const t = i / neckSteps;
+    const y = -0.62 * radius + t * 0.92 * radius;
+    const r = radius * (0.48 + 0.45 * Math.sin(t * Math.PI * 0.5));
+    glassProfile.push(new THREE.Vector2(r, y));
+  }
+  const domeSteps = 16;
+  const domeCy = 0.3 * radius;
+  const domeRx = 0.93 * radius;
+  const domeRy = 0.88 * radius;
+  for (let i = 1; i <= domeSteps; i++) {
+    const angle = (i / domeSteps) * (Math.PI * 0.5);
+    const r = Math.max(0, domeRx * Math.cos(angle));
+    const y = domeCy + domeRy * Math.sin(angle);
+    glassProfile.push(new THREE.Vector2(r, y));
+  }
+  const glassGeo = new THREE.LatheGeometry(glassProfile, 28);
+  glassGeo.computeVertexNormals();
+  glassGeo.computeBoundingSphere();
+
+  // E27 ridged brass screw cap (-0.60r down to -1.24r)
+  const capProfile: THREE.Vector2[] = [new THREE.Vector2(radius * 0.49, -0.58 * radius)];
+  const threadSteps = 18;
+  for (let i = 0; i <= threadSteps; i++) {
+    const t = i / threadSteps;
+    const y = -0.58 * radius - t * 0.5 * radius;
+    const ridge = Math.sin(t * Math.PI * 6) * 0.038 * radius;
+    const taper = 0.47 - t * 0.05;
+    capProfile.push(new THREE.Vector2(radius * taper + ridge, y));
+  }
+  capProfile.push(new THREE.Vector2(radius * 0.3, -1.14 * radius));
+  capProfile.push(new THREE.Vector2(radius * 0.14, -1.24 * radius));
+  capProfile.push(new THREE.Vector2(0, -1.25 * radius));
+
+  const capGeo = new THREE.LatheGeometry(capProfile, 24);
+  capGeo.computeVertexNormals();
+  capGeo.computeBoundingSphere();
+
+  // Inner warm tungsten zig-zag hairpin filament
+  const pts: THREE.Vector3[] = [
+    new THREE.Vector3(-radius * 0.14, -0.45 * radius, 0),
+    new THREE.Vector3(-radius * 0.22, 0.12 * radius, 0),
+    new THREE.Vector3(-radius * 0.14, 0.36 * radius, radius * 0.08),
+    new THREE.Vector3(-radius * 0.05, 0.46 * radius, -radius * 0.06),
+    new THREE.Vector3(radius * 0.05, 0.36 * radius, radius * 0.08),
+    new THREE.Vector3(radius * 0.14, 0.46 * radius, -radius * 0.06),
+    new THREE.Vector3(radius * 0.22, 0.12 * radius, 0),
+    new THREE.Vector3(radius * 0.14, -0.45 * radius, 0),
+  ];
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const filamentGeo = new THREE.TubeGeometry(curve, 32, Math.max(0.01, radius * 0.042), 8, false);
+  filamentGeo.computeBoundingSphere();
+
+  return { glassGeo, capGeo, filamentGeo };
+}
+
+/**
+ * Builds a soft teardrop latex helium balloon body + tied knot and curly ribbon tail.
+ */
+export function createBalloonParts(radius: number): {
+  bodyGeo: THREE.BufferGeometry;
+  tailGeo: THREE.BufferGeometry;
+} {
+  const profile: THREE.Vector2[] = [];
+  // Rubber tie lip + pinched knot (-1.14r to -0.98r)
+  profile.push(new THREE.Vector2(radius * 0.12, -1.14 * radius));
+  profile.push(new THREE.Vector2(radius * 0.05, -1.06 * radius));
+  profile.push(new THREE.Vector2(radius * 0.08, -0.98 * radius));
+
+  // Smooth parametric teardrop dome without sharp top/bottom pinch
+  const bodySteps = 24;
+  for (let i = 0; i <= bodySteps; i++) {
+    const u = i / bodySteps;
+    const theta = u * Math.PI;
+    const y = -0.98 * radius + (1 - Math.cos(theta)) * 1.06 * radius;
+    const pear = 0.68 + 0.38 * Math.sin(u * Math.PI * 0.72);
+    const r = i === 0 ? radius * 0.08 : i === bodySteps ? 0 : Math.max(0, radius * Math.sin(theta) * pear);
+    profile.push(new THREE.Vector2(r, y));
+  }
+  const bodyGeo = new THREE.LatheGeometry(profile, 32);
+  bodyGeo.computeVertexNormals();
+  bodyGeo.computeBoundingSphere();
+
+  const ribbonPts = [
+    new THREE.Vector3(0, -1.1 * radius, 0),
+    new THREE.Vector3(radius * 0.09, -1.36 * radius, radius * 0.05),
+    new THREE.Vector3(-radius * 0.11, -1.66 * radius, -radius * 0.04),
+    new THREE.Vector3(radius * 0.08, -1.96 * radius, radius * 0.04),
+    new THREE.Vector3(-radius * 0.04, -2.24 * radius, -radius * 0.02),
+  ];
+  const ribbonCurve = new THREE.CatmullRomCurve3(ribbonPts);
+  const tailGeo = new THREE.TubeGeometry(ribbonCurve, 20, Math.max(0.008, radius * 0.032), 6, false);
+  tailGeo.computeBoundingSphere();
+
+  return { bodyGeo, tailGeo };
+}
+
+/**
+ * Builds a C1-smooth chamfered casino die preserving 6 face material groups (+X,-X,+Y,-Y,+Z,-Z)
+ * with continuous Minkowski bevels across edges and corners.
+ */
+export function createCasinoDiceGeometry(edge: number): THREE.BufferGeometry {
+  const segs = 6;
+  const geo = new THREE.BoxGeometry(edge, edge, edge, segs, segs, segs);
+  const pos = geo.attributes.position;
+  const norm = geo.attributes.normal;
+  const half = edge * 0.5;
+  const bevel = edge * 0.17;
+  const inner = Math.max(0.001, half - bevel);
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+
+    const cx = Math.max(-inner, Math.min(inner, x));
+    const cy = Math.max(-inner, Math.min(inner, y));
+    const cz = Math.max(-inner, Math.min(inner, z));
+
+    const dx = x - cx;
+    const dy = y - cy;
+    const dz = z - cz;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const nx = dx / len;
+    const ny = dy / len;
+    const nz = dz / len;
+
+    pos.setXYZ(i, cx + nx * bevel, cy + ny * bevel, cz + nz * bevel);
+    norm.setXYZ(i, nx, ny, nz);
+  }
+
+  pos.needsUpdate = true;
+  norm.needsUpdate = true;
+  geo.computeBoundingSphere();
+  return geo;
+}
+
+/**
+ * Builds a rounded, organically undulating crystal cocktail ice cube.
+ */
+export function createIceCubeGeometry(edge: number): THREE.BufferGeometry {
+  const segs = 6;
+  const geo = new THREE.BoxGeometry(edge, edge * 0.92, edge, segs, segs, segs);
+  const pos = geo.attributes.position;
+  const hx = edge * 0.5;
+  const hy = edge * 0.46;
+  const hz = edge * 0.5;
+  const bevel = edge * 0.2;
+  const ix = hx - bevel;
+  const iy = hy - bevel;
+  const iz = hz - bevel;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+
+    const cx = Math.max(-ix, Math.min(ix, x));
+    const cy = Math.max(-iy, Math.min(iy, y));
+    const cz = Math.max(-iz, Math.min(iz, z));
+
+    const dx = x - cx;
+    const dy = y - cy;
+    const dz = z - cz;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const nx = dx / len;
+    const ny = dy / len;
+    const nz = dz / len;
+
+    const melt = Math.sin((x + y) * 14) * Math.cos((y - z) * 12) * edge * 0.025;
+    const r = bevel + melt;
+    pos.setXYZ(i, cx + nx * r, cy + ny * r, cz + nz * r);
+  }
+
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  return geo;
+}
+
+/**
+ * Builds faceted 3D shard geometry for broken glass/ice/ceramic or curled confetti ribbons.
+ */
+export function createShardGeometry(
+  radius: number,
+  kind: 'glass' | 'ice' | 'ceramic' | 'confetti',
+): THREE.BufferGeometry {
+  if (kind === 'confetti') {
+    const geo = new THREE.PlaneGeometry(radius * 0.52, radius * 0.28, 3, 1);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      pos.setZ(i, Math.sin((x / Math.max(0.001, radius)) * 8) * radius * 0.08);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    return geo;
+  }
+
+  if (kind === 'ice') {
+    const geo = new THREE.OctahedronGeometry(radius * 0.52, 0);
+    geo.scale(1.18, 0.72, 0.94);
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    return geo;
+  }
+
+  // Thin crisp 3D triangular shell wedge for glass and porcelain ceramic shards
+  const w = radius * 0.62;
+  const h = radius * 0.52;
+  const t = radius * (kind === 'ceramic' ? 0.14 : 0.09);
+
+  const f0: Vec3Tuple = [-w * 0.55, -h * 0.38, t * 0.5];
+  const f1: Vec3Tuple = [w * 0.58, -h * 0.22, t * 0.4];
+  const f2: Vec3Tuple = [-w * 0.06, h * 0.58, t * 0.55];
+  const b0: Vec3Tuple = [f0[0] * 0.9, f0[1] * 0.9, -t * 0.5];
+  const b1: Vec3Tuple = [f1[0] * 0.9, f1[1] * 0.9, -t * 0.5];
+  const b2: Vec3Tuple = [f2[0] * 0.9, f2[1] * 0.9, -t * 0.5];
+
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  pushOutwardTri(positions, uvs, f0, f1, f2, [0, 0], [1, 0.2], [0.4, 1]);
+  pushOutwardTri(positions, uvs, b0, b2, b1, [0, 0], [0.4, 1], [1, 0.2]);
+  pushOutwardTri(positions, uvs, f0, b0, b1, [0, 0], [0, 0.1], [1, 0.1]);
+  pushOutwardTri(positions, uvs, f0, b1, f1, [0, 0], [1, 0.1], [1, 0.2]);
+  pushOutwardTri(positions, uvs, f1, b1, b2, [1, 0.2], [1, 0.1], [0.4, 1]);
+  pushOutwardTri(positions, uvs, f1, b2, f2, [1, 0.2], [0.4, 1], [0.4, 0.9]);
+  pushOutwardTri(positions, uvs, f2, b2, b0, [0.4, 1], [0.4, 0.9], [0, 0]);
+  pushOutwardTri(positions, uvs, f2, b0, f0, [0.4, 1], [0, 0.1], [0, 0]);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
+}

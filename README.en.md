@@ -2,11 +2,11 @@
 
 [简体中文](README.md) · [Open the site](https://gravity-watch-face.xiaosang.cc/) · [GitHub](https://github.com/holynova/gravity-watch-face)
 
-Tilt your phone to roll tennis balls across the court or let gold bars pile up against one wall. Five scenes share real-time rigid-body physics and adapt to portrait or landscape.
+Tilt your phone or drag the desktop gimbal to tumble 13 real-time 3D PBR physics scenes: Tennis, Diamonds, Basketball, Gold Bars, Soccer, Edison Bulbs, Party Balloons, Casino Dice, Glass Marbles, Ice Cubes, Jelly Balls, Chrome Bearings, and Porcelain Orbs.
 
 <img src="assets/screenshot.png" width="360" alt="Gravity playground on a phone">
 
-Choose Tennis, Diamonds, Basketball, Gold Bars or Soccer. On desktop, drag the tilt simulator. Fullscreen expands the borderless court. Pure view keeps only the floor, soft shadows and objects. Compatible devices provide haptic feedback.
+Tap balloons to pop confetti, double-tap or slam glass marbles, bulbs, ice cubes, and porcelain orbs for crackles and shatters, and enjoy borderless full-bleed grounds with analytical soft shadows and material-specific haptics.
 
 ## Run locally
 

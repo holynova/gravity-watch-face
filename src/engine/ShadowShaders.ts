@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export const MAX_AO_BODIES = 40;
+export const MAX_AO_BODIES = 56;
 
 export interface ShadowUniforms {
   uBodies: { value: THREE.Vector4[] };
@@ -13,6 +13,7 @@ export interface ShadowUniforms {
   uItemAoGain: { value: number };
   uFloorBounceOcc: { value: number };
   uDepthDarkMin: { value: number };
+  uShadowMin: { value: number };
   uIsSphereTheme: { value: number };
   uItemRefRadius: { value: number };
   uShadowTint: { value: THREE.Color };
@@ -35,6 +36,7 @@ export function createShadowUniforms(): ShadowUniforms {
     uItemAoGain: { value: 1.24 },
     uFloorBounceOcc: { value: 0.5 },
     uDepthDarkMin: { value: 0.64 },
+    uShadowMin: { value: 0.04 },
     uIsSphereTheme: { value: 1.0 },
     uItemRefRadius: { value: 0.35 },
     uShadowTint: { value: new THREE.Color(0x7a2b18) },
@@ -53,6 +55,7 @@ function attachSharedUniforms(shader: THREE.WebGLProgramParametersWithUniforms, 
   shader.uniforms.uItemAoGain = uniforms.uItemAoGain;
   shader.uniforms.uFloorBounceOcc = uniforms.uFloorBounceOcc;
   shader.uniforms.uDepthDarkMin = uniforms.uDepthDarkMin;
+  shader.uniforms.uShadowMin = uniforms.uShadowMin;
   shader.uniforms.uIsSphereTheme = uniforms.uIsSphereTheme;
   shader.uniforms.uItemRefRadius = uniforms.uItemRefRadius;
   shader.uniforms.uShadowTint = uniforms.uShadowTint;
@@ -91,6 +94,7 @@ uniform int uBodyCount;
 uniform vec3 uKeyDir;
 uniform float uLightRadius;
 uniform float uFloorAoGain;
+uniform float uShadowMin;
 uniform float uIsSphereTheme;
 uniform vec3 uShadowTint;
 
@@ -116,7 +120,7 @@ void main() {`,
     float hRatio = r / max( l, 0.0001 );
     float occ = clamp( cosT * hRatio * hRatio * uFloorAoGain, 0.0, 0.94 );
     float wrapHalo = clamp( ( 1.0 - smoothstep( r * 0.68, r * 1.9, d ) ) * ( toB.z / max( r, 0.0001 ) ), 0.0, 0.72 );
-    floorAo *= ( 1.0 - max( occ, wrapHalo * 0.65 ) );
+    floorAo *= ( 1.0 - max( occ, wrapHalo * 0.65 ) * ( 1.0 - uShadowMin * 0.45 ) );
 
     if ( uIsSphereTheme > 0.5 ) {
       float t = dot( toB, aoLightDir );
@@ -124,14 +128,14 @@ void main() {`,
         float perp = length( toB - t * aoLightDir );
         float penumbra = max( 0.08 * r, t * uLightRadius );
         float s = smoothstep( r - penumbra, r + penumbra, perp );
-        softSh = min( softSh, mix( 0.04, 1.0, s ) );
+        softSh = min( softSh, mix( uShadowMin, 1.0, s ) );
       }
     }
   }
 
-  floorAo = clamp( floorAo, 0.05, 1.0 );
-  vec3 tintMix = mix( vec3( 1.0 ), uShadowTint, ( 1.0 - softSh * floorAo ) * 0.62 );
-  float indOcc = floorAo * mix( 0.44, 1.0, softSh );
+  floorAo = clamp( floorAo, max( 0.05, uShadowMin * 0.8 ), 1.0 );
+  vec3 tintMix = mix( vec3( 1.0 ), uShadowTint, ( 1.0 - softSh * floorAo ) * ( 0.62 * ( 1.0 - uShadowMin * 0.55 ) ) );
+  float indOcc = floorAo * mix( 0.44 + uShadowMin * 0.38, 1.0, softSh );
 
   reflectedLight.directDiffuse *= softSh * tintMix;
   reflectedLight.directSpecular *= softSh;

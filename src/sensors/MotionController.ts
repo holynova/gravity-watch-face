@@ -15,7 +15,7 @@ export interface MotionCallbacks {
   onUpdate?: (snapshot: MotionSnapshot) => void;
 }
 
-const GRAVITY_SCALE = 26.5;
+const GRAVITY_SCALE = 46.0;
 
 export class MotionController {
   private mode: ControlMode = 'simulated';
@@ -31,7 +31,7 @@ export class MotionController {
 
   private rawTilt = { x: 0, y: -0.92 };
   private simTilt = { x: 0, y: -0.92 };
-  private smoothG = { x: 0, y: -24.0, z: -7.5 };
+  private smoothG = { x: 0, y: -42.0, z: -6.5 };
   private kineticLevel = 0;
 
   private lastShakeMs = 0;
@@ -124,6 +124,16 @@ export class MotionController {
     window.addEventListener('deviceorientation', this.onDeviceOrientation, { passive: true });
   }
 
+  private shapeTiltVector(tx: number, ty: number): [number, number] {
+    const rawMag = Math.hypot(tx, ty);
+    if (rawMag < 0.025) return [0, 0];
+    // Boost modest 15°–35° phone tilts (~0.25–0.58) so objects accelerate briskly
+    const norm = Math.min(1, rawMag / 0.72);
+    const curved = Math.pow(norm, 0.76);
+    const scale = curved / rawMag;
+    return [tx * scale, ty * scale];
+  }
+
   private getScreenAngle(): number {
     const angle = window.screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0;
     return ((angle % 360) + 360) % 360;
@@ -190,11 +200,12 @@ export class MotionController {
       this.rawTilt.x = Math.max(-1, Math.min(1, nx));
       this.rawTilt.y = Math.max(-1, Math.min(1, ny));
 
-      // Keep subtle floor-hug z bias when phone lies flat so objects settle on court
-      const targetZ = Math.min(-4.2, nz * GRAVITY_SCALE * 0.45 - 4.0);
-      const alpha = 0.24;
-      this.smoothG.x += (nx * GRAVITY_SCALE - this.smoothG.x) * alpha;
-      this.smoothG.y += (ny * GRAVITY_SCALE - this.smoothG.y) * alpha;
+      const [gxNorm, gyNorm] = this.shapeTiltVector(this.rawTilt.x, this.rawTilt.y);
+      // Keep light floor-hug z bias so objects glide briskly with minimal normal friction
+      const targetZ = Math.max(-10.5, Math.min(-3.5, nz * 7.5 - 2.8));
+      const alpha = 0.58;
+      this.smoothG.x += (gxNorm * GRAVITY_SCALE - this.smoothG.x) * alpha;
+      this.smoothG.y += (gyNorm * GRAVITY_SCALE - this.smoothG.y) * alpha;
       this.smoothG.z += (targetZ - this.smoothG.z) * alpha;
     }
 
@@ -210,9 +221,9 @@ export class MotionController {
     this.kineticLevel = Math.min(1, this.kineticLevel * 0.92 + jerk * 0.025);
 
     const now = performance.now();
-    if (jerk > 13.5 && now - this.lastShakeMs > 460) {
+    if (jerk > 12.0 && now - this.lastShakeMs > 380) {
       this.lastShakeMs = now;
-      this.callbacks.onShake?.(Math.min(1.6, jerk / 14));
+      this.callbacks.onShake?.(Math.min(1.6, jerk / 13));
     }
   };
 
@@ -264,17 +275,17 @@ export class MotionController {
     }
 
     if (this.mode === 'demo') {
-      this.demoPhase += dt * 0.92;
+      this.demoPhase += dt * 1.15;
       const tx = Math.sin(this.demoPhase) * 0.88;
       const ty = Math.cos(this.demoPhase * 0.71) * 0.88;
       this.rawTilt.x = tx;
       this.rawTilt.y = ty;
 
       const tz = -Math.sqrt(Math.max(0.08, 1 - tx * tx * 0.85 - ty * ty * 0.85));
-      const alpha = 0.16;
+      const alpha = 0.28;
       this.smoothG.x += (tx * GRAVITY_SCALE - this.smoothG.x) * alpha;
       this.smoothG.y += (ty * GRAVITY_SCALE - this.smoothG.y) * alpha;
-      this.smoothG.z += ((tz * 10 - 3) - this.smoothG.z) * alpha;
+      this.smoothG.z += (tz * 7.5 - 2.8 - this.smoothG.z) * alpha;
       this.kineticLevel = Math.min(1, this.kineticLevel * 0.95 + Math.hypot(tx, ty) * 0.02);
     } else if (this.mode === 'simulated') {
       const tx = this.simTilt.x;
@@ -282,11 +293,12 @@ export class MotionController {
       this.rawTilt.x = tx;
       this.rawTilt.y = ty;
 
+      const [gxNorm, gyNorm] = this.shapeTiltVector(tx, ty);
       const tz = -Math.sqrt(Math.max(0.1, 1 - Math.min(0.95, tx * tx + ty * ty)));
-      const alpha = 0.22;
-      this.smoothG.x += (tx * GRAVITY_SCALE - this.smoothG.x) * alpha;
-      this.smoothG.y += (ty * GRAVITY_SCALE - this.smoothG.y) * alpha;
-      this.smoothG.z += ((tz * 11 - 3.5) - this.smoothG.z) * alpha;
+      const alpha = 0.5;
+      this.smoothG.x += (gxNorm * GRAVITY_SCALE - this.smoothG.x) * alpha;
+      this.smoothG.y += (gyNorm * GRAVITY_SCALE - this.smoothG.y) * alpha;
+      this.smoothG.z += (tz * 7.5 - 2.8 - this.smoothG.z) * alpha;
       this.kineticLevel *= 0.96;
     }
 

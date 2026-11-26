@@ -224,6 +224,97 @@ function makeGoldEvaluator(): RgbEval {
   };
 }
 
+function makeStudioBrightEvaluator(): RgbEval {
+  const keyDir = norm3(-0.4, 0.72, 0.56);
+  const rimDir = norm3(0.75, 0.28, 0.58);
+  const bounceDir = norm3(0.25, -0.68, 0.68);
+
+  return (dx, dy, dz, out) => {
+    const skyMix = smoothstep(-0.9, 0.9, dy);
+    let r = 0.38 + (1.02 - 0.38) * skyMix;
+    let g = 0.4 + (1.04 - 0.4) * skyMix;
+    let b = 0.44 + (1.08 - 0.44) * skyMix;
+
+    const wKey = gaussSpot(dx, dy, dz, keyDir[0], keyDir[1], keyDir[2], 0.42);
+    r += wKey * 3.8;
+    g += wKey * 3.76;
+    b += wKey * 3.68;
+
+    const wRim = gaussSpot(dx, dy, dz, rimDir[0], rimDir[1], rimDir[2], 0.45);
+    r += wRim * 2.35;
+    g += wRim * 2.42;
+    b += wRim * 2.55;
+
+    const wBounce = gaussSpot(dx, dy, dz, bounceDir[0], bounceDir[1], bounceDir[2], 0.55);
+    r += wBounce * 1.15;
+    g += wBounce * 1.12;
+    b += wBounce * 1.08;
+
+    out[0] = r;
+    out[1] = g;
+    out[2] = b;
+  };
+}
+
+function makeIndustrialEvaluator(): RgbEval {
+  const keyDir = norm3(-0.52, 0.64, 0.56);
+  const warmDir = norm3(0.58, -0.22, 0.78);
+  const stripDir = norm3(-0.18, 0.88, 0.44);
+
+  return (dx, dy, dz, out) => {
+    const skyMix = smoothstep(-0.85, 0.85, dy);
+    let r = 0.03 + (0.16 - 0.03) * skyMix;
+    let g = 0.032 + (0.17 - 0.032) * skyMix;
+    let b = 0.038 + (0.2 - 0.038) * skyMix;
+
+    const wKey = gaussSpot(dx, dy, dz, keyDir[0], keyDir[1], keyDir[2], 0.3);
+    r += wKey * 4.2;
+    g += wKey * 4.05;
+    b += wKey * 3.85;
+
+    const wWarm = gaussSpot(dx, dy, dz, warmDir[0], warmDir[1], warmDir[2], 0.36);
+    r += wWarm * 3.2;
+    g += wWarm * 2.0;
+    b += wWarm * 0.85;
+
+    const wStrip = gaussSpot(dx, dy, dz, stripDir[0], stripDir[1], stripDir[2], 0.16);
+    r += wStrip * 5.6;
+    g += wStrip * 5.4;
+    b += wStrip * 5.1;
+
+    out[0] = r;
+    out[1] = g;
+    out[2] = b;
+  };
+}
+
+function makeChromeEvaluator(): RgbEval {
+  const boxA = norm3(-0.46, 0.6, 0.65);
+  const boxB = norm3(0.66, 0.32, 0.68);
+  const boxC = norm3(-0.2, -0.62, 0.75);
+
+  return (dx, dy, dz, out) => {
+    // High-contrast studio bands for liquid mirror steel reflections
+    const horizon = Math.exp(-Math.pow((dy - 0.04) / 0.14, 2));
+    const upperSky = smoothstep(0.18, 0.88, dy);
+    let r = 0.04 + upperSky * 0.36 + horizon * 0.95;
+    let g = 0.045 + upperSky * 0.4 + horizon * 1.02;
+    let b = 0.055 + upperSky * 0.46 + horizon * 1.12;
+
+    const sA = Math.pow(gaussSpot(dx, dy, dz, boxA[0], boxA[1], boxA[2], 0.22), 1.35);
+    const sB = Math.pow(gaussSpot(dx, dy, dz, boxB[0], boxB[1], boxB[2], 0.24), 1.35);
+    const sC = gaussSpot(dx, dy, dz, boxC[0], boxC[1], boxC[2], 0.34);
+
+    r += sA * 8.2 + sB * 5.6 + sC * 1.4;
+    g += sA * 8.6 + sB * 5.9 + sC * 1.45;
+    b += sA * 9.2 + sB * 6.4 + sC * 1.55;
+
+    out[0] = r;
+    out[1] = g;
+    out[2] = b;
+  };
+}
+
 export class EnvironmentBank {
   private readonly cache = new Map<EnvPreset, THREE.Texture>();
   private readonly pmrem: THREE.PMREMGenerator;
@@ -237,12 +328,27 @@ export class EnvironmentBank {
     const hit = this.cache.get(preset);
     if (hit) return hit;
 
-    const evaluator =
-      preset === 'diamond'
-        ? makeDiamondEvaluator()
-        : preset === 'gold'
-          ? makeGoldEvaluator()
-          : makeSportEvaluator();
+    let evaluator: RgbEval;
+    switch (preset) {
+      case 'diamond':
+        evaluator = makeDiamondEvaluator();
+        break;
+      case 'gold':
+        evaluator = makeGoldEvaluator();
+        break;
+      case 'studioBright':
+        evaluator = makeStudioBrightEvaluator();
+        break;
+      case 'industrial':
+        evaluator = makeIndustrialEvaluator();
+        break;
+      case 'chrome':
+        evaluator = makeChromeEvaluator();
+        break;
+      default:
+        evaluator = makeSportEvaluator();
+        break;
+    }
 
     const equirectTex = buildEquirectangularHdr(evaluator, 512, 256);
     const target = this.pmrem.fromEquirectangular(equirectTex);

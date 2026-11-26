@@ -159,9 +159,22 @@ body {
   display: flex;
   align-items: center;
   gap: 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: min(260px, calc(100vw - 156px));
+  padding: 2px 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(90deg, transparent 0, #000 8px, #000 calc(100% - 10px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 8px, #000 calc(100% - 10px), transparent 100%);
+}
+
+.mobile-swatch-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-swatch {
+  flex: 0 0 auto;
   width: 24px;
   height: 24px;
   border-radius: 999px;
@@ -309,14 +322,28 @@ body {
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  gap: 5px;
+  max-height: 264px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+.theme-grid::-webkit-scrollbar {
+  width: 4px;
+}
+
+.theme-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
 }
 
 .theme-btn {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 11px;
+  gap: 7px;
+  padding: 6px 9px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
@@ -545,6 +572,14 @@ body {
   display: flex;
 }
 
+.app-shell.is-fullbleed .mobile-dock.is-dimmed {
+  opacity: 0.22;
+}
+
+.app-shell.is-fullbleed .exit-fullbleed-btn.is-dimmed {
+  opacity: 0.28;
+}
+
 /* Mobile & touch pure edge-to-edge full-screen across all screen sizes and orientations */
 @media (max-width: 960px), (max-height: 540px), (hover: none) and (pointer: coarse) {
   .app-shell {
@@ -570,9 +605,5 @@ body {
 
   .mobile-dock {
     display: flex;
-  }
-
-  .app-shell.is-fullbleed .mobile-dock {
-    display: none;
   }
 }
