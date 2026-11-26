@@ -5,9 +5,16 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { EnvironmentBank } from '../themes/environments';
 import { createBrilliantDiamondGeometry, createGoldIngotGeometry } from '../themes/geometries';
-import { TextureBank } from '../themes/textures';
+import { FLOOR_BLEED, TextureBank } from '../themes/textures';
 import { ThemeSpec } from '../themes/types';
 import { BodyMeta, BoundsSize, PhysicsWorld } from './PhysicsWorld';
+import {
+  createShadowUniforms,
+  MAX_AO_BODIES,
+  patchFloorShadowShader,
+  patchItemShadowShader,
+  ShadowUniforms,
+} from './ShadowShaders';
 
 interface SparkleSlot {
   sprite: THREE.Sprite;
@@ -15,30 +22,6 @@ interface SparkleSlot {
   phase: number;
   speed: number;
   baseScale: number;
-}
-
-interface ShadowSlot {
-  mesh: THREE.Mesh;
-  mat: THREE.MeshBasicMaterial;
-  meta: BodyMeta;
-}
-
-function orientWallGeometryUVs(
-  geo: THREE.PlaneGeometry,
-  rot: [number, number, number],
-  wallSpanZ: number,
-): void {
-  const pos = geo.attributes.position;
-  const uv = geo.attributes.uv;
-  const euler = new THREE.Euler(rot[0], rot[1], rot[2]);
-  const v = new THREE.Vector3();
-
-  for (let i = 0; i < pos.count; i++) {
-    v.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyEuler(euler);
-    const vz = THREE.MathUtils.clamp((v.z + wallSpanZ * 0.5) / wallSpanZ, 0, 1);
-    uv.setXY(i, 0.5, vz);
-  }
-  uv.needsUpdate = true;
 }
 
 export class SceneRenderer {
@@ -53,24 +36,20 @@ export class SceneRenderer {
   private readonly hemiLight: THREE.HemisphereLight;
   private readonly keyLight: THREE.DirectionalLight;
   private readonly fillLight: THREE.DirectionalLight;
-  private readonly baseKeyPos = new THREE.Vector3(-5.2, 6.8, 7.6);
-  private readonly baseFillPos = new THREE.Vector3(4.5, -3.5, 4.8);
-  private readonly tmpVec = new THREE.Vector3();
+  private readonly baseKeyPos = new THREE.Vector3(-5.0, 6.0, 6.8);
+  private readonly baseFillPos = new THREE.Vector3(4.8, -3.2, 4.2);
   private readonly tmpEuler = new THREE.Euler();
-  private readonly tmpQuat = new THREE.Quaternion();
+  private readonly shadowUniforms: ShadowUniforms = createShadowUniforms();
 
   private readonly boxGroup = new THREE.Group();
-  private readonly contactShadowGroup = new THREE.Group();
   private readonly itemsGroup = new THREE.Group();
   private readonly sparklesGroup = new THREE.Group();
 
   private floorMesh: THREE.Mesh | null = null;
-  private wallMeshes: THREE.Mesh[] = [];
   private itemMeshes: THREE.Mesh[] = [];
-  private shadowSlots: ShadowSlot[] = [];
-  private sharedShadowGeo: THREE.PlaneGeometry | null = null;
+  private itemMeta: BodyMeta[] = [];
   private sharedItemGeo: THREE.BufferGeometry | null = null;
-  private sharedItemMat: THREE.Material | null = null;
+  private sharedItemMat: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial | null = null;
   private sparkleSlots: SparkleSlot[] = [];
 
   private width = 390;
@@ -96,10 +75,10 @@ export class SceneRenderer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = initialTheme.exposure;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x030406);
+    this.scene.background = new THREE.Color(initialTheme.floorBaseColor);
 
     this.camera = new THREE.PerspectiveCamera(34, 390 / 844, 0.5, 45);
     this.camera.position.set(0, 0, this.cameraBaseZ);
@@ -137,11 +116,11 @@ export class SceneRenderer {
       initialTheme.keyLightIntensity,
     );
     this.keyLight.position.copy(this.baseKeyPos);
-    this.keyLight.castShadow = true;
+    this.keyLight.castShadow = initialTheme.overlayLayout === 'vault';
     this.keyLight.shadow.mapSize.set(2048, 2048);
-    this.keyLight.shadow.radius = 4.2;
-    this.keyLight.shadow.bias = -0.00035;
-    this.keyLight.shadow.normalBias = 0.014;
+    this.keyLight.shadow.radius = 3.5;
+    this.keyLight.shadow.bias = -0.0002;
+    this.keyLight.shadow.normalBias = 0.008;
     this.scene.add(this.keyLight);
 
     this.fillLight = new THREE.DirectionalLight(
@@ -152,7 +131,6 @@ export class SceneRenderer {
     this.scene.add(this.fillLight);
 
     this.scene.add(this.boxGroup);
-    this.scene.add(this.contactShadowGroup);
     this.scene.add(this.itemsGroup);
     this.scene.add(this.sparklesGroup);
 
@@ -174,13 +152,13 @@ export class SceneRenderer {
     const refSpan = Math.min(estW, estH);
     const depth = Math.max(1.25, Math.min(2.6, refSpan * this.currentTheme.boxDepthFactor));
 
-    const frontDist = this.cameraBaseZ - depth * 0.5;
-    const frontH = 2 * halfFovTan * frontDist;
-    const frontW = frontH * aspect;
+    const playDist = this.cameraBaseZ + depth * 0.22;
+    const playH = 2 * halfFovTan * playDist;
+    const playW = playH * aspect;
 
     this.bounds = {
-      halfW: frontW * 0.5 - 0.035,
-      halfH: frontH * 0.5 - 0.035,
+      halfW: playW * 0.5 - 0.02,
+      halfH: playH * 0.5 - 0.02,
       depth,
     };
 
@@ -226,12 +204,6 @@ export class SceneRenderer {
       this.boxGroup.remove(this.floorMesh);
       this.floorMesh = null;
     }
-    for (const w of this.wallMeshes) {
-      w.geometry.dispose();
-      (w.material as THREE.Material).dispose();
-      this.boxGroup.remove(w);
-    }
-    this.wallMeshes = [];
   }
 
   private rebuildBox(): void {
@@ -239,18 +211,21 @@ export class SceneRenderer {
 
     const aspect = this.width / Math.max(1, this.height);
     const texSet = this.texBank.get(this.currentTheme.id, aspect);
-    const fullW = (this.bounds.halfW + 0.035) * 2;
-    const fullH = (this.bounds.halfH + 0.035) * 2;
     const depth = this.bounds.depth;
     const hz = depth * 0.5;
+    const fovRad = THREE.MathUtils.degToRad(this.camera.fov);
+    const backDist = this.cameraBaseZ + hz;
+    const backH = 2 * Math.tan(fovRad * 0.5) * backDist;
+    const backW = backH * aspect;
 
-    const floorGeo = new THREE.PlaneGeometry(fullW + 0.08, fullH + 0.08);
+    const floorGeo = new THREE.PlaneGeometry(backW * FLOOR_BLEED, backH * FLOOR_BLEED);
     const isVault = this.currentTheme.overlayLayout === 'vault';
     const floorMat = isVault
-      ? new THREE.MeshStandardMaterial({
-          color: this.currentTheme.id === 'gold' ? 0x040403 : 0x040507,
-          roughness: 0.98,
+      ? new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(this.currentTheme.floorBaseColor).multiplyScalar(0.35),
+          roughness: 0.96,
           metalness: 0.0,
+          specularIntensity: 0.04,
           envMapIntensity: 0.02,
         })
       : new THREE.MeshStandardMaterial({
@@ -258,48 +233,13 @@ export class SceneRenderer {
           roughnessMap: texSet.floorRoughnessMap ?? null,
           roughness: this.currentTheme.id === 'basketball' ? 0.58 : 0.92,
           metalness: 0.02,
-          envMapIntensity: 0.22,
+          envMapIntensity: this.currentTheme.id === 'basketball' ? 0.16 : 0.08,
         });
+    patchFloorShadowShader(floorMat, this.shadowUniforms, isVault ? 'floor-vault' : 'floor-court');
     this.floorMesh = new THREE.Mesh(floorGeo, floorMat);
     this.floorMesh.position.set(0, 0, -hz);
-    this.floorMesh.receiveShadow = true;
+    this.floorMesh.receiveShadow = isVault;
     this.boxGroup.add(this.floorMesh);
-
-    // 4 recessed cavity walls with depth-mapped AO darkening into floor seam
-    const wallSpanZ = depth + 1.4;
-    const wallCenterZ = 0.7;
-    const wallAoTex = this.texBank.getWallAo(this.currentTheme.wallColor);
-    const wallMat = new THREE.MeshStandardMaterial({
-      map: wallAoTex,
-      roughness: 0.94,
-      metalness: 0.02,
-      envMapIntensity: 0.1,
-      side: THREE.FrontSide,
-    });
-
-    const wallSpecs: Array<{
-      w: number;
-      h: number;
-      pos: [number, number, number];
-      rot: [number, number, number];
-    }> = [
-      { w: wallSpanZ, h: fullH + 0.1, pos: [-fullW * 0.5, 0, wallCenterZ], rot: [0, Math.PI / 2, 0] },
-      { w: wallSpanZ, h: fullH + 0.1, pos: [fullW * 0.5, 0, wallCenterZ], rot: [0, -Math.PI / 2, 0] },
-      { w: fullW + 0.1, h: wallSpanZ, pos: [0, -fullH * 0.5, wallCenterZ], rot: [-Math.PI / 2, 0, 0] },
-      { w: fullW + 0.1, h: wallSpanZ, pos: [0, fullH * 0.5, wallCenterZ], rot: [Math.PI / 2, 0, 0] },
-    ];
-
-    for (const spec of wallSpecs) {
-      const geo = new THREE.PlaneGeometry(spec.w, spec.h);
-      orientWallGeometryUVs(geo, spec.rot, wallSpanZ);
-      const mesh = new THREE.Mesh(geo, wallMat.clone());
-      mesh.position.set(...spec.pos);
-      mesh.rotation.set(...spec.rot);
-      mesh.receiveShadow = true;
-      this.boxGroup.add(mesh);
-      this.wallMeshes.push(mesh);
-    }
-    wallMat.dispose();
   }
 
   private clearItems(): void {
@@ -307,18 +247,11 @@ export class SceneRenderer {
       this.itemsGroup.remove(mesh);
     }
     this.itemMeshes = [];
+    this.itemMeta = [];
     this.sharedItemGeo?.dispose();
     this.sharedItemGeo = null;
     this.sharedItemMat?.dispose();
     this.sharedItemMat = null;
-
-    for (const slot of this.shadowSlots) {
-      this.contactShadowGroup.remove(slot.mesh);
-      slot.mat.dispose();
-    }
-    this.shadowSlots = [];
-    this.sharedShadowGeo?.dispose();
-    this.sharedShadowGeo = null;
 
     for (const slot of this.sparkleSlots) {
       this.sparklesGroup.remove(slot.sprite);
@@ -331,15 +264,17 @@ export class SceneRenderer {
     this.currentTheme = theme;
     this.recomputeBounds();
 
-    this.scene.background = new THREE.Color(theme.floorBaseColor).multiplyScalar(0.32);
+    this.scene.background = new THREE.Color(theme.floorBaseColor);
     this.scene.environment = this.envBank.get(theme.envPreset);
 
     this.hemiLight.color.setHex(theme.hemiSkyColor);
     this.hemiLight.groundColor.setHex(theme.hemiGroundColor);
     this.hemiLight.intensity = theme.hemiIntensity;
 
+    const isVault = theme.overlayLayout === 'vault';
     this.keyLight.color.setHex(theme.keyLightColor);
     this.keyLight.intensity = theme.keyLightIntensity;
+    this.keyLight.castShadow = isVault;
 
     this.fillLight.color.setHex(theme.fillLightColor);
     this.fillLight.intensity = theme.fillLightIntensity;
@@ -349,15 +284,25 @@ export class SceneRenderer {
     this.bloomPass.radius = theme.bloomRadius;
     this.bloomPass.threshold = theme.bloomThreshold;
 
-    this.rebuildBox();
-    this.clearItems();
-
     const aspect = this.width / Math.max(1, this.height);
     const texSet = this.texBank.get(theme.id, aspect);
-    const contactTex = this.texBank.getContactShadow();
-    const fullW = (this.bounds.halfW + 0.035) * 2;
-    const fullH = (this.bounds.halfH + 0.035) * 2;
+    const fullW = (this.bounds.halfW + 0.02) * 2;
+    const fullH = (this.bounds.halfH + 0.02) * 2;
     const baseSize = Math.min(fullW, fullH) * theme.sizeFactor;
+
+    this.shadowUniforms.uLightRadius.value = theme.lightRadius;
+    this.shadowUniforms.uFloorAoGain.value = theme.floorAoGain;
+    this.shadowUniforms.uItemAoGain.value = theme.itemAoGain;
+    this.shadowUniforms.uDepthDarkMin.value = theme.depthDarkMin;
+    this.shadowUniforms.uIsSphereTheme.value = theme.shapeKind === 'sphere' ? 1.0 : 0.0;
+    this.shadowUniforms.uItemRefRadius.value = baseSize;
+    this.shadowUniforms.uShadowTint.value.setHex(theme.shadowTint);
+    this.shadowUniforms.uBounceColor.value.setHex(theme.bounceColor);
+    this.shadowUniforms.uFloorZ.value = -this.bounds.depth * 0.5;
+    this.shadowUniforms.uBoxDepth.value = this.bounds.depth;
+
+    this.rebuildBox();
+    this.clearItems();
 
     if (theme.shapeKind === 'sphere') {
       this.sharedItemGeo = new THREE.SphereGeometry(baseSize, 32, 24);
@@ -366,30 +311,30 @@ export class SceneRenderer {
           map: texSet.itemMap,
           bumpMap: texSet.itemBumpMap,
           bumpScale: 0.018,
-          roughness: 0.88,
+          roughness: 0.92,
           metalness: 0.0,
-          sheen: 0.62,
-          sheenRoughness: 0.78,
-          sheenColor: new THREE.Color(0xeef88d),
-          envMapIntensity: 0.72,
+          sheen: 0.06,
+          sheenRoughness: 0.9,
+          sheenColor: new THREE.Color(0xb8cc38),
+          envMapIntensity: 0.26,
         });
       } else if (theme.id === 'basketball') {
         this.sharedItemMat = new THREE.MeshStandardMaterial({
           map: texSet.itemMap,
           bumpMap: texSet.itemBumpMap,
           bumpScale: 0.024,
-          roughness: 0.68,
+          roughness: 0.74,
           metalness: 0.04,
-          envMapIntensity: 0.78,
+          envMapIntensity: 0.3,
         });
       } else {
         this.sharedItemMat = new THREE.MeshStandardMaterial({
           map: texSet.itemMap,
           bumpMap: texSet.itemBumpMap,
           bumpScale: 0.016,
-          roughness: 0.52,
+          roughness: 0.58,
           metalness: 0.04,
-          envMapIntensity: 0.82,
+          envMapIntensity: 0.28,
         });
       }
     } else if (theme.shapeKind === 'diamond') {
@@ -426,26 +371,16 @@ export class SceneRenderer {
       });
     }
 
-    this.sharedShadowGeo = new THREE.PlaneGeometry(1, 1);
+    patchItemShadowShader(this.sharedItemMat, this.shadowUniforms, `item-${theme.id}`);
+    this.itemMeta = [...bodyMeta];
 
     for (const meta of bodyMeta) {
       const mesh = new THREE.Mesh(this.sharedItemGeo, this.sharedItemMat);
       mesh.scale.setScalar(meta.scale);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      mesh.castShadow = isVault;
+      mesh.receiveShadow = isVault;
       this.itemsGroup.add(mesh);
       this.itemMeshes.push(mesh);
-
-      const sMat = new THREE.MeshBasicMaterial({
-        map: contactTex,
-        transparent: true,
-        opacity: 0.45,
-        depthWrite: false,
-      });
-      const sMesh = new THREE.Mesh(this.sharedShadowGeo, sMat);
-      sMesh.position.z = -this.bounds.depth * 0.5 + 0.008;
-      this.contactShadowGroup.add(sMesh);
-      this.shadowSlots.push({ mesh: sMesh, mat: sMat, meta });
     }
 
     // Restrained delicate micro-glint sprites on top of HDR bloom for Diamonds
@@ -520,46 +455,28 @@ export class SceneRenderer {
     );
     this.camera.lookAt(0, 0, -this.bounds.depth * 0.25);
 
-    const rotX = this.smoothTilt.y * 0.42;
-    const rotY = -this.smoothTilt.x * 0.42;
+    const rotX = this.smoothTilt.y * 0.32;
+    const rotY = -this.smoothTilt.x * 0.32;
     this.scene.environmentRotation.set(rotX, rotY, 0);
 
     this.tmpEuler.set(rotX, rotY, 0);
     this.keyLight.position.copy(this.baseKeyPos).applyEuler(this.tmpEuler);
     this.fillLight.position.copy(this.baseFillPos).applyEuler(this.tmpEuler);
 
-    // Update grounded dynamic contact shadows on floor
-    const keyDir = this.tmpVec.copy(this.keyLight.position).normalize();
-    const hz = this.bounds.depth * 0.5;
-    const isVault = this.currentTheme.overlayLayout === 'vault';
-    const baseOpacity = isVault ? 0.42 : 0.62;
-
-    for (let i = 0; i < Math.min(n, this.shadowSlots.length); i++) {
+    // Sync analytical raytraced shadow & multi-body crevice AO uniforms
+    this.shadowUniforms.uKeyDir.value.copy(this.keyLight.position).normalize();
+    this.shadowUniforms.uFloorZ.value = -this.bounds.depth * 0.5;
+    this.shadowUniforms.uBoxDepth.value = this.bounds.depth;
+    const aoCount = Math.min(n, this.itemMeta.length, MAX_AO_BODIES);
+    this.shadowUniforms.uBodyCount.value = aoCount;
+    for (let i = 0; i < aoCount; i++) {
       const b = bodies[i];
-      const slot = this.shadowSlots[i];
-      const meta = slot.meta;
-
-      const h = Math.max(0, b.position.z + hz - meta.halfExtents[2]);
-      const hNorm = h / Math.max(0.45, this.bounds.depth);
-      const offX = -keyDir.x * (0.03 + h * 0.24);
-      const offY = -keyDir.y * (0.03 + h * 0.24);
-
-      slot.mesh.position.set(b.position.x + offX, b.position.y + offY, -hz + 0.008);
-
-      if (meta.kind === 'ingot') {
-        this.tmpQuat.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
-        const axisZ = new THREE.Vector3(0, 0, 1).applyQuaternion(this.tmpQuat);
-        const angle = Math.atan2(axisZ.y, axisZ.x) - Math.PI * 0.5;
-        const stretch = 1 + hNorm * 0.65;
-        slot.mesh.rotation.set(0, 0, angle);
-        slot.mesh.scale.set(meta.halfExtents[0] * 2.55 * stretch, meta.halfExtents[2] * 2.35 * stretch, 1);
-      } else {
-        const size = meta.halfExtents[0] * 2.55 * (1 + hNorm * 0.72);
-        slot.mesh.rotation.set(0, 0, 0);
-        slot.mesh.scale.set(size, size, 1);
-      }
-
-      slot.mat.opacity = baseOpacity * Math.exp(-hNorm * 1.85);
+      const m = this.itemMeta[i];
+      const effR =
+        m.kind === 'sphere'
+          ? m.halfExtents[0]
+          : (m.halfExtents[0] + m.halfExtents[1] + m.halfExtents[2]) * 0.34;
+      this.shadowUniforms.uBodies.value[i].set(b.position.x, b.position.y, b.position.z, effR);
     }
 
     // Subtle diamond scintillation sprites

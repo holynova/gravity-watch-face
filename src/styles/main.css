@@ -1,6 +1,7 @@
 :root {
   color-scheme: dark;
   --bg-backdrop: #050608;
+  --theme-floor-bg: #0a0f18;
   --surface-rail: rgba(20, 22, 28, 0.78);
   --border-subtle: rgba(255, 255, 255, 0.11);
   --text-primary: #f5f7fa;
@@ -23,7 +24,8 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-backdrop);
+  background: var(--theme-floor-bg);
+  transition: background-color 260ms ease;
   color: var(--text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -40,7 +42,8 @@ body {
   gap: 32px;
   padding: 20px;
   position: relative;
-  background: radial-gradient(circle at 38% 48%, #10141c 0%, #050608 68%);
+  background: var(--theme-floor-bg);
+  transition: background-color 260ms ease;
 }
 
 /* Pure screen content viewport on desktop (frameless glass screen, zero strap/wrist/bezel) */
@@ -52,13 +55,14 @@ body {
   max-width: calc(100vw - 380px);
   border-radius: 36px;
   overflow: hidden;
-  background: #030406;
+  background: var(--theme-floor-bg);
   box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.72),
-    0 0 0 1px rgba(255, 255, 255, 0.14);
+    0 18px 48px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.16);
   touch-action: none;
   container-type: inline-size;
   flex-shrink: 0;
+  transition: background-color 260ms ease;
 }
 
 .physics-canvas {
@@ -67,13 +71,12 @@ body {
   height: 100%;
 }
 
-/* Sapphire cover glass subtle inner vignette & dynamic tilt sheen */
+/* Sapphire cover glass subtle dynamic tilt sheen (edge-to-edge without dark border) */
 .glass-sheen {
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.56);
   background:
     radial-gradient(
       95% 65% at calc(22% + var(--tilt-x, 0) * 18%) calc(14% - var(--tilt-y, 0) * 14%),
@@ -84,8 +87,7 @@ body {
     linear-gradient(
       128deg,
       rgba(255, 255, 255, 0.018) 0%,
-      rgba(255, 255, 255, 0) 32%,
-      rgba(0, 0, 0, 0.14) 100%
+      rgba(255, 255, 255, 0) 45%
     );
 }
 
@@ -548,7 +550,7 @@ body {
   .app-shell {
     padding: 0;
     gap: 0;
-    background: #000000;
+    background: var(--theme-floor-bg);
   }
 
   .screen-stage {

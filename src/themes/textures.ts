@@ -24,6 +24,8 @@ interface ItemTextureSet {
   sparkleMap?: THREE.CanvasTexture;
 }
 
+export const FLOOR_BLEED = 1.26;
+
 function getFloorCanvasDims(aspect: number): { W: number; H: number } {
   const clamped = Math.max(0.4, Math.min(2.6, aspect || 9 / 19.5));
   if (clamped <= 1) {
@@ -91,8 +93,10 @@ function createTennisCourtTexture(aspect: number): THREE.CanvasTexture {
   const shortSide = Math.min(W, H);
   const longSide = Math.max(W, H);
 
-  // Regulation tennis court: 10.97m doubles width x 23.77m length
-  const pxPerM = Math.min((shortSide * 0.78) / 10.97, (longSide * 0.82) / 23.77);
+  // Regulation tennis court: 10.97m doubles width x 23.77m length (scaled to visible center area inside bleed canvas)
+  const visShort = shortSide / FLOOR_BLEED;
+  const visLong = longSide / FLOOR_BLEED;
+  const pxPerM = Math.min((visShort * 0.78) / 10.97, (visLong * 0.82) / 23.77);
   const cw = Math.round(10.97 * pxPerM);
   const ch = Math.round(23.77 * pxPerM);
   const cx0 = -Math.round(cw * 0.5);
@@ -169,14 +173,6 @@ function createTennisCourtTexture(aspect: number): THREE.CanvasTexture {
 
   ctx.restore();
 
-  // Inner edge shadow vignette (deepened perimeter recess)
-  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, shortSide * 0.22, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.54);
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(0.7, 'rgba(0,0,0,0.16)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.62)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, W, H);
-
   return toTexture(canvas);
 }
 
@@ -198,7 +194,7 @@ function createBasketballCourtTextures(aspect: number): {
   // Smoked walnut hardwood planks aligned along court length
   const spanAcross = isLandscape ? H : W;
   const spanAlong = isLandscape ? W : H;
-  const plankCount = Math.max(20, Math.round(spanAcross / 38));
+  const plankCount = Math.max(24, Math.round(spanAcross / 34));
   const plankW = spanAcross / plankCount;
 
   const paintPlanks = (c: CanvasRenderingContext2D, rc: CanvasRenderingContext2D) => {
@@ -248,8 +244,10 @@ function createBasketballCourtTextures(aspect: number): {
 
   paintPlanks(ctx, rCtx);
 
-  // Regulation FIBA/NBA court markings (15.0m x 28.0m) using single uniform scale -> true circles
-  const pxPerM = Math.min((spanAcross * 0.88) / 15.0, (spanAlong * 0.91) / 28.0);
+  // Regulation FIBA/NBA court markings (15.0m x 28.0m) using single uniform scale within visible viewport area
+  const visAcross = spanAcross / FLOOR_BLEED;
+  const visAlong = spanAlong / FLOOR_BLEED;
+  const pxPerM = Math.min((visAcross * 0.88) / 15.0, (visAlong * 0.9) / 28.0);
   const courtW = 15.0 * pxPerM;
   const courtH = 28.0 * pxPerM;
 
@@ -382,13 +380,6 @@ function createBasketballCourtTextures(aspect: number): {
   drawHalf(1);
   ctx.restore();
 
-  // Subtle dark court vignette
-  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, spanAcross * 0.2, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.55);
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.48)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, W, H);
-
   return {
     map: toTexture(canvas),
     roughnessMap: toTexture(rCanvas, THREE.NoColorSpace),
@@ -400,7 +391,7 @@ function createSoccerPitchTexture(aspect: number): THREE.CanvasTexture {
   const [canvas, ctx] = makeCanvas(W, H);
 
   const isLandscape = W > H;
-  const stripes = 10;
+  const stripes = 12;
   if (isLandscape) {
     const stripeW = W / stripes;
     for (let i = 0; i < stripes; i++) {
@@ -428,10 +419,12 @@ function createSoccerPitchTexture(aspect: number): THREE.CanvasTexture {
   }
   ctx.putImageData(img, 0, 0);
 
-  // Regulation 68m x 105m pitch markings under uniform pxPerM scale
+  // Regulation 68m x 105m pitch markings under uniform pxPerM scale within visible viewport area
   const shortSide = Math.min(W, H);
   const longSide = Math.max(W, H);
-  const pxPerM = Math.min((shortSide * 0.86) / 68, (longSide * 0.9) / 105);
+  const visShort = shortSide / FLOOR_BLEED;
+  const visLong = longSide / FLOOR_BLEED;
+  const pxPerM = Math.min((visShort * 0.86) / 68, (visLong * 0.9) / 105);
   const pw = 68 * pxPerM;
   const ph = 105 * pxPerM;
 
@@ -507,12 +500,6 @@ function createSoccerPitchTexture(aspect: number): THREE.CanvasTexture {
 
   ctx.restore();
 
-  const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, shortSide * 0.22, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.55);
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.46)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, W, H);
-
   return toTexture(canvas);
 }
 
@@ -524,7 +511,7 @@ function createVaultFloorTexture(tintHex: string): THREE.CanvasTexture {
 
   const grad = ctx.createRadialGradient(S * 0.5, S * 0.5, S * 0.08, S * 0.5, S * 0.5, S * 0.68);
   grad.addColorStop(0, 'rgba(255,255,255,0.03)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.5)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, S, S);
   return toTexture(canvas);
@@ -602,10 +589,10 @@ function createTennisBallTextures(): {
         bd[idx] = bd[idx + 1] = bd[idx + 2] = bVal;
         bd[idx + 3] = 255;
       } else {
-        // Optic yellow fuzzy felt (saturated for authentic light-to-shadow modeling)
-        cd[idx] = Math.max(0, Math.min(255, Math.round(192 + feltNoise)));
-        cd[idx + 1] = Math.max(0, Math.min(255, Math.round(224 + feltNoise * 0.85)));
-        cd[idx + 2] = Math.max(0, Math.min(255, Math.round(34 + feltNoise * 0.6)));
+        // Optic chartreuse-yellow fuzzy felt matching rich lit-to-core contrast
+        cd[idx] = Math.max(0, Math.min(255, Math.round(180 + feltNoise)));
+        cd[idx + 1] = Math.max(0, Math.min(255, Math.round(212 + feltNoise * 0.85)));
+        cd[idx + 2] = Math.max(0, Math.min(255, Math.round(22 + feltNoise * 0.55)));
         cd[idx + 3] = 255;
         const bVal = Math.max(0, Math.min(255, Math.round(170 + feltNoise * 2.2)));
         bd[idx] = bd[idx + 1] = bd[idx + 2] = bVal;
@@ -967,78 +954,9 @@ function createDiamondSparkleTexture(): THREE.CanvasTexture {
   return toTexture(canvas);
 }
 
-export function createContactShadowTexture(): THREE.CanvasTexture {
-  const S = 128;
-  const [canvas, ctx] = makeCanvas(S, S);
-  const img = ctx.createImageData(S, S);
-  const d = img.data;
-  const half = S * 0.5;
-
-  for (let py = 0; py < S; py++) {
-    for (let px = 0; px < S; px++) {
-      const dx = (px + 0.5 - half) / half;
-      const dy = (py + 0.5 - half) / half;
-      const r = Math.hypot(dx, dy);
-      const t = Math.max(0, Math.min(1, (r - 0.62) / 0.38));
-      const edgeFade = 1 - t * t * (3 - 2 * t);
-      const alpha = Math.exp(-4.2 * r * r) * edgeFade;
-      const idx = (py * S + px) * 4;
-      d[idx] = 4;
-      d[idx + 1] = 5;
-      d[idx + 2] = 8;
-      d[idx + 3] = Math.round(Math.max(0, Math.min(255, alpha * 255)));
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return toTexture(canvas, THREE.SRGBColorSpace, 4);
-}
-
-export function createWallAoTexture(baseHex: string): THREE.CanvasTexture {
-  const W = 64;
-  const H = 256;
-  const [canvas, ctx] = makeCanvas(W, H);
-
-  // v = 0 (bottom of canvas, floor seam -hz) -> near-black AO; v = 1 (top, front glass +hz) -> baseHex
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, baseHex);
-  grad.addColorStop(0.45, baseHex);
-  grad.addColorStop(0.84, '#050608');
-  grad.addColorStop(1, '#020203');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  // Subtle recessed micro-vignette darkening
-  const shade = ctx.createLinearGradient(0, 0, 0, H);
-  shade.addColorStop(0, 'rgba(0,0,0,0.06)');
-  shade.addColorStop(0.55, 'rgba(0,0,0,0.34)');
-  shade.addColorStop(1, 'rgba(0,0,0,0.88)');
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, W, H);
-
-  return toTexture(canvas, THREE.SRGBColorSpace, 4);
-}
-
 export class TextureBank {
   private readonly floorCache = new Map<string, FloorTextureSet>();
   private readonly itemCache = new Map<ThemeId, ItemTextureSet>();
-  private contactShadowTex: THREE.CanvasTexture | null = null;
-  private readonly wallAoCache = new Map<string, THREE.CanvasTexture>();
-
-  getContactShadow(): THREE.CanvasTexture {
-    if (!this.contactShadowTex) {
-      this.contactShadowTex = createContactShadowTexture();
-    }
-    return this.contactShadowTex;
-  }
-
-  getWallAo(baseHex: string): THREE.CanvasTexture {
-    let tex = this.wallAoCache.get(baseHex);
-    if (!tex) {
-      tex = createWallAoTexture(baseHex);
-      this.wallAoCache.set(baseHex, tex);
-    }
-    return tex;
-  }
 
   private getItems(id: ThemeId): ItemTextureSet {
     const hit = this.itemCache.get(id);
@@ -1100,10 +1018,10 @@ export class TextureBank {
         floor = { floorMap: createSoccerPitchTexture(Number(bucket)) };
         break;
       case 'diamonds':
-        floor = { floorMap: createVaultFloorTexture('#050608') };
+        floor = { floorMap: createVaultFloorTexture('#0a0f18') };
         break;
       case 'gold':
-        floor = { floorMap: createVaultFloorTexture('#060503') };
+        floor = { floorMap: createVaultFloorTexture('#120d06') };
         break;
     }
 
@@ -1142,11 +1060,5 @@ export class TextureBank {
       it.sparkleMap?.dispose();
     }
     this.itemCache.clear();
-    this.contactShadowTex?.dispose();
-    this.contactShadowTex = null;
-    for (const tex of this.wallAoCache.values()) {
-      tex.dispose();
-    }
-    this.wallAoCache.clear();
   }
 }

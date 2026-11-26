@@ -93,6 +93,9 @@ for (const spec of THEME_LIST) {
 function selectTheme(id: ThemeId, fromGesture = false): void {
   activeThemeId = id;
   const spec = THEMES_BY_ID[id];
+  document.documentElement.style.setProperty('--theme-floor-bg', spec.floorBaseColor);
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) themeColorMeta.setAttribute('content', spec.floorBaseColor);
   const meta = physics.spawnForTheme(spec);
   renderer.applyTheme(spec, meta);
   sound.setTheme(id);

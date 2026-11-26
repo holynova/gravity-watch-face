@@ -6,7 +6,7 @@ Tilt your phone to roll tennis balls across the court or let gold bars pile up a
 
 <img src="assets/screenshot.png" width="360" alt="Gravity playground on a phone">
 
-Choose Tennis, Diamonds, Basketball, Gold Bars or Soccer. On desktop, drag the tilt simulator. Fullscreen expands the court. Pure view keeps only the floor and objects. Compatible devices provide haptic feedback.
+Choose Tennis, Diamonds, Basketball, Gold Bars or Soccer. On desktop, drag the tilt simulator. Fullscreen expands the borderless court. Pure view keeps only the floor, soft shadows and objects. Compatible devices provide haptic feedback.
 
 ## Run locally
 
